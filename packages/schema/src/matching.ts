@@ -113,8 +113,9 @@ export const LooksSameScores = z.object({
 export type LooksSameScores = z.infer<typeof LooksSameScores>
 
 /**
- * Why a piece stays a picture: its shapes' rebuild doesn't look the same, it has too many parts (more
- * colours, areas or patches than a flat drawing has, or more graphics than an answer holds), it is a
+ * Why a piece stays a picture: its shapes' rebuild doesn't look the same (so also a piece with next to
+ * nothing covered, which no shape rebuilds), it has too many parts (more colours, areas or patches than
+ * a flat drawing has, a pattern too fine for its size, or more graphics than an answer holds), it is a
  * photo or shaded art (flat colours leave too much of it unexplained), it is too big, the matcher
  * failed (for text, also when the piece has no ink to read), or this browser can't run the matchers. A
  * text piece the matcher reads always becomes text.

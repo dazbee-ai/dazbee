@@ -12,16 +12,12 @@ export interface ShapeStroke {
   width: number
   align: 'inside' | 'center'
   cap?: 'butt' | 'round'
-  /** A dashed stroke's dash and gap lengths, and how far into them it starts. */
-  dashes?: [number, number]
-  dashOffset?: number
 }
 
 /** A graphic the shape matcher answers with, in the piece's pixels, before the schema's defaults. */
 export interface ShapeLayer {
   type: 'graphic'
   name: string
-  role?: 'background'
   bindings?: { fill: VariableRef }
   props: {
     x: number
@@ -34,8 +30,6 @@ export interface ShapeLayer {
     strokes: ShapeStroke[]
     effects?: DropShadow[]
   }
-  /** A traced path's fitted shape, which takes its place when the piece still looks the same with it; never drawn or answered. */
-  editable?: ShapeLayer
 }
 
 /** A layer drawn as a piece's graphics: the shape matcher's own, or one of its answered layers. */
@@ -102,7 +96,7 @@ function designOf(layers: readonly DrawnLayer[], width: number, height: number) 
       link: id,
       index: 'a' + (INDEX_DIGITS[Math.floor(i / 62)] ?? '') + (INDEX_DIGITS[i % 62] ?? ''),
       name: layer.name,
-      ...(layer.role ? { role: layer.role } : {}),
+      ...('role' in layer && layer.role ? { role: layer.role } : {}),
       ...(layer.bindings ? { bindings: layer.bindings } : {}),
       props: layer.props,
     }

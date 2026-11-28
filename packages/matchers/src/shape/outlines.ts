@@ -9,6 +9,11 @@ export interface Loop {
   area: number
 }
 
+/** What `near` holds for a pixel mixed with no neighbour: an inner pixel, covered whole. */
+export const INNER = -1
+/** And for a pixel mixed with no neighbour but with what is behind the piece: it is covered by its mix. */
+export const OVER_GROUND = -2
+
 /** How far a pixel's coverage is pushed from its neighbourhood's mean before the outlines are read. */
 const SHARPEN = 1
 
@@ -39,7 +44,8 @@ export function outlines(
       if (xx < 0 || xx >= width) continue
       const i = yy * width + xx
       const mixed = near[i] ?? 0
-      if (patchOf[i] === r.id) cover[y * w + x] = mixed < 0 || patchOf[mixed] === r.id ? 1 : (mix[i] ?? 0)
+      if (patchOf[i] === r.id)
+        cover[y * w + x] = mixed === INNER || (mixed >= 0 && patchOf[mixed] === r.id) ? 1 : (mix[i] ?? 0)
       else if (mixed >= 0 && patchOf[mixed] === r.id) cover[y * w + x] = 1 - (mix[i] ?? 0)
     }
   }

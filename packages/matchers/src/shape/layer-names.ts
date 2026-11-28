@@ -57,9 +57,9 @@ const COLOUR_LABS = COLOUR_WORDS.map(([word, hex]) => ({
   lab: srgbToLab(...hexRgb(hex)),
 }))
 
-/** A graphic's name: its colour's word, then its shape's, or "background" for one that fills the piece. */
-export function layerName(rgb: readonly [number, number, number], fit: ShapeFit, background: boolean): string {
-  return `${colourWord(rgb)} ${background ? 'background' : shapeWord(fit)}`
+/** A graphic's name: its colour's word, then its shape's. */
+export function layerName(rgb: readonly [number, number, number], fit: ShapeFit): string {
+  return `${colourWord(rgb)} ${shapeWord(fit)}`
 }
 
 /** A traced path's name: its colour's word, then "shape". */

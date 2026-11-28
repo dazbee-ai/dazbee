@@ -34,6 +34,9 @@ export interface Stacked {
   border?: { filler: Stacked; width: number }
 }
 
+/** The most points in a row, between free points of an outline, that are free with them. */
+const FREE_GAP = 2
+
 /** The settings of the stacking. */
 export const STACKING = {
   /** An outline is a primitive when its mean and 95th-percentile distance to it are within these: pixels, or a share of its shorter side when that is more. */
@@ -41,6 +44,13 @@ export const STACKING = {
   meanShare: 0.006,
   p95Pixels: 1.25,
   p95Share: 0.02,
+  /**
+   * And its farthest point must lie within these of it, so no one place of it strays (a corner cut off, a bump):
+   * pixels, a share of its shorter side, or a share of its longer side, which lets a hairline's end be a little off.
+   */
+  farthestPixels: 2,
+  farthestShare: 0.03,
+  farthestOfLong: 0.01,
   /** An ellipse is picked over a rectangle that is this many pixels closer or less. */
   roundWins: 0.05,
   /** And over a rectangle rounded into a circle that is this many pixels closer or less. */
@@ -63,7 +73,10 @@ export const STACKING = {
 /** The patches back to front, each with its place among the others worked out. */
 export function stack(patches: readonly Patch[], patchOf: Int32Array, width: number, height: number): Stacked[] {
   const order = [...patches].sort((a, b) => b.outline - a.outline || b.area - a.area)
-  const rank = new Int32Array(Math.max(0, ...patches.map((r) => r.id)) + 1).fill(-1)
+  // Every patch of the cut has a rank, -1 for one that is no graphic.
+  let last = -1
+  for (let i = 0; i < patchOf.length; i++) last = Math.max(last, patchOf[i] ?? -1)
+  const rank = new Int32Array(last + 1).fill(-1)
   order.forEach((r, i) => (rank[r.id] = i))
   const stacked: Stacked[] = order.map((patch) => ({
     patch,
@@ -248,9 +261,11 @@ function primitiveOf(
 /** Whether an outline keeps close enough to a primitive to be one. */
 function close(p: Primitive): boolean {
   const least = Math.min(p.width, p.height)
+  const most = Math.max(p.width, p.height)
   return (
     p.mean <= Math.max(STACKING.meanPixels, STACKING.meanShare * least) &&
-    p.p95 <= Math.max(STACKING.p95Pixels, STACKING.p95Share * least)
+    p.p95 <= Math.max(STACKING.p95Pixels, STACKING.p95Share * least) &&
+    p.max <= Math.max(STACKING.farthestPixels, STACKING.farthestShare * least, STACKING.farthestOfLong * most)
   )
 }
 
@@ -268,9 +283,8 @@ function closest(a: Primitive, b: Primitive): number {
 
 /**
  * The primitive that outlines of patches `ids`, of `area` pixels in all, keep to, which holds those patches and
- * little else, or null. A
- * point of an outline is free, and not counted, where a patch smaller than the one ranked `own` lies on the other
- * side of it: the shape may run under that patch.
+ * little else, or null. A point of an outline is free, and not counted, where a patch smaller than the one ranked
+ * `own` lies on the other side of it: the shape may run under that patch.
  */
 function shapeOf(
   outlines: readonly Loop[],
@@ -304,13 +318,21 @@ function shapeOf(
         const yy = Math.floor(y + dy)
         if (xx < 0 || yy < 0 || xx >= width || yy >= height) continue
         const other = patchOf[yy * width + xx] ?? 0
-        // A patch numbered past the last ranked one has no rank: it is neither over the shape nor under it.
-        const ranked = rank[other]
-        if (other >= 0 && !ids.has(other) && ranked !== undefined && ranked > own) free[at] = 1
+        if (other >= 0 && !ids.has(other) && (rank[other] ?? -1) > own) free[at] = 1
       }
-      freed += free[at] ?? 0
+    }
+    // Where the smaller patch only brushes the outline, a point or two in a run of free points has none of its
+    // pixels beside it: they are free with the run.
+    const first = at - outline.points.length / 2
+    const n = at - first
+    for (let k = 0; k < n; k++) {
+      if (free[first + k] || !free[first + ((k + n - 1) % n)]) continue
+      let run = 1
+      while (run <= FREE_GAP && !free[first + ((k + run) % n)]) run++
+      if (run <= FREE_GAP) for (let g = 0; g < run; g++) free[first + ((k + g) % n)] = 1
     }
   }
+  for (let k = 0; k < count; k++) freed += free[k] ?? 0
   if (freed > STACKING.mostFree * count) return null
   const shape = fitPrimitives(points, freed ? free : undefined)
     .filter(close)
@@ -335,8 +357,9 @@ function shapeOf(
         // What a kept hole shows is no part of the shape.
         if (hollow && !ids.has(other) && holds(hollow.points, x + 0.5, y + 0.5)) continue
         inside++
-        const ranked = rank[other]
-        if (!ids.has(other) && (other < 0 || (ranked !== undefined && ranked < own))) wrong++
+        // A patch that is no graphic is too small to matter: it is neither under the shape nor wrong in it.
+        const ranked = rank[other] ?? -1
+        if (!ids.has(other) && (other < 0 || (ranked >= 0 && ranked < own))) wrong++
       }
     }
   return held * step * step >= (1 - STACKING.misfit) * area && wrong <= STACKING.misfit * inside ? shape : null

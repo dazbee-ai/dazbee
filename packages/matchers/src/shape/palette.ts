@@ -243,6 +243,11 @@ export function labAt(binLab: Float32Array, b: number): Lab {
   return [binLab[b * 3] ?? 0, binLab[b * 3 + 1] ?? 0, binLab[b * 3 + 2] ?? 0]
 }
 
+/** The squared distance between two colours' red, green and blue. */
+export function distance2(a: readonly number[], b: readonly number[]): number {
+  return ((a[0] ?? 0) - (b[0] ?? 0)) ** 2 + ((a[1] ?? 0) - (b[1] ?? 0)) ** 2 + ((a[2] ?? 0) - (b[2] ?? 0)) ** 2
+}
+
 function lab2(binLab: Float32Array, b: number, lab: Lab): number {
   return (
     ((binLab[b * 3] ?? 0) - lab[0]) ** 2 +

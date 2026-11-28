@@ -3,7 +3,7 @@
 //   node scripts/measure-shapes.ts repeat <baseline.json> <runs> [--coupon-only]
 // `TEST_ADS_DIR` names the test ads' folder (a folder per ad with blocks.json and its block crops) and `SYNTH_DIR`
 // synthetic set 2's (index.json and <id>.png); both stay outside the repo, and so does the baseline: the shape
-// prototype's ladder run with the fitted rule, one answer a piece, which names the dashed coupon's piece.
+// prototype's answers under the fitted rule, one a piece, which names the dashed coupon's piece.
 // - measure: the 47 held-out shape pieces and the 25 held-out photo and cutout pieces sent as shapes (every third ad
 //   in name order, from the third), synthetic set 2 (312) and the dashed coupon. Prints each piece the matcher and
 //   the baseline decide differently, the counts of each, and with --table every piece's answer. A count says how

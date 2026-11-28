@@ -1,21 +1,32 @@
 import { describe, expect, it } from 'vitest'
 
 import { loadCanvasKit } from '@dazbee/renderer/node'
-import { type MatchAnswer, MatchJob, type MatchKit, type Paint, type UnplacedLayer } from '@dazbee/schema'
+import { type MatchAnswer, MatchJob, type Paint } from '@dazbee/schema'
 
 import { looksSame } from '../looks-same/rule.ts'
 import { drawGraphics, type ShapeLayer } from './draw-layers.ts'
-import { type Around, matchShapes, matchShapesOf, SHAPE_STEPS, type ShapeStep } from './match-shapes.ts'
+import { matchShapes, matchShapesOf, SHAPE_STEPS, type ShapeStep } from './match-shapes.ts'
 import { hexRgb } from './parts/colour.ts'
-import { ellipse, graphic, hiding, noise, pngBase64, rectangle, shadowed } from './test-pieces.ts'
-
-type Graphic = Extract<UnplacedLayer, { type: 'graphic' }>
-interface Box {
-  x: number
-  y: number
-  width: number
-  height: number
-}
+import {
+  bandAndDisc,
+  type Box,
+  expectBox,
+  expectColour,
+  flatFill,
+  type Graphic,
+  graphicsIn,
+  halftone,
+  HEIGHT,
+  matched,
+  matchedAsOne,
+  onlyOne,
+  painted,
+  rebuilt,
+  rebuiltAsOne,
+  rimmed,
+  WIDTH,
+} from './test-matching.ts'
+import { ellipse, graphic, hiding, noise, pngBase64, rectangle, shadowed, stroked, SUNSET } from './test-pieces.ts'
 
 const ck = await loadCanvasKit()
 const BLUE = '#2563EBFF'
@@ -23,87 +34,12 @@ const CORAL = '#F2765AFF'
 const GREEN = '#16A34AFF'
 const RED = '#DC2626FF'
 const INK = '#111827FF'
+const NAVY = '#15224AFF'
 const WHITE = '#FFFFFFFF'
-const WIDTH = 200
-const HEIGHT = 140
-
-const LINEAR: Paint = {
-  type: 'linear',
-  from: { x: 0, y: 0.5 },
-  to: { x: 1, y: 0.5 },
-  stops: [
-    { offset: 0, color: '#FDE68AFF' },
-    { offset: 1, color: '#B91C1CFF' },
-  ],
-}
-
-/**
- * The answer for graphics drawn as a piece, with the steps told. The piece is drawn and matched twice: the two
- * answers are one, and the first is returned.
- */
-const matched = (
-  layers: ShapeLayer[],
-  {
-    width = WIDTH,
-    height = HEIGHT,
-    colors = {},
-    around = {},
-  }: { width?: number; height?: number; colors?: MatchKit['colors']; around?: Around } = {},
-) => {
-  const piece = drawGraphics(ck, layers, width, height)
-  const steps: ShapeStep[] = []
-  const answer = matchShapesOf(ck, piece, colors, around, (step) => steps.push(step))
-  expect(matchShapesOf(ck, drawGraphics(ck, layers, width, height), colors, around)).toEqual(answer)
-  return { piece, answer, steps }
-}
-
-/** An answer's graphics, back to front; it throws for a piece that stayed a picture. */
-const graphicsOf = (answer: MatchAnswer): Graphic[] => {
-  if (answer.kind !== 'layers') throw new Error(`a picture: ${answer.why}`)
-  expect(answer.approximate).toBe(false)
-  return answer.layers.map((layer) => {
-    if (layer.type !== 'graphic') throw new Error(`a ${layer.type} layer`)
-    return layer
-  })
-}
-
-/** The graphics that rebuild graphics drawn as a piece, which look the same as the piece by the rule. */
-const rebuilt = (layers: ShapeLayer[], options: Parameters<typeof matched>[1] = {}): Graphic[] => {
-  const { piece, answer } = matched(layers, options)
-  const graphics = graphicsOf(answer)
-  expect(looksSame('shape', piece, drawGraphics(ck, graphics, piece.width, piece.height)).same).toBe(true)
-  return graphics
-}
-
-/** The one graphic that rebuilds graphics drawn as a piece. */
-const rebuiltAsOne = (layers: ShapeLayer[], options: Parameters<typeof matched>[1] = {}): Graphic => {
-  const [only, ...others] = rebuilt(layers, options)
-  expect(others).toEqual([])
-  if (!only) throw new Error('no graphic')
-  return only
-}
-
-/** Expects a graphic's box to be the one drawn, each number within `within` pixels. */
-const expectBox = (layer: Graphic, box: Box, within = 1) => {
-  expect(Math.abs(layer.props.x - box.x)).toBeLessThanOrEqual(within)
-  expect(Math.abs(layer.props.y - box.y)).toBeLessThanOrEqual(within)
-  expect(Math.abs(layer.props.width - box.width)).toBeLessThanOrEqual(within)
-  expect(Math.abs(layer.props.height - box.height)).toBeLessThanOrEqual(within)
-}
-
-/** Expects a colour to be another, each channel within 6 of 255. */
-const expectColour = (color: string | undefined, want: string) => {
-  const got = hexRgb(color ?? '')
-  hexRgb(want).forEach((channel, i) => expect(Math.abs((got[i] ?? NaN) - channel)).toBeLessThanOrEqual(6))
-}
-
-/** A graphic's one fill, when it is a flat colour. */
-const flatFill = (layer: Graphic) => {
-  const [fill, ...others] = layer.props.fills
-  expect(others).toEqual([])
-  if (fill?.type !== 'solid') throw new Error(`a ${fill?.type} fill`)
-  return fill
-}
+/** Colours of the pieces painted by hand: red, green, blue and alpha. */
+const PAINT_RED = [220, 38, 38, 255] as const
+const PAINT_BLUE = [37, 99, 235, 255] as const
+const CLEAR = [0, 0, 0, 0] as const
 
 /** What other layers hide of a 200 × 140 piece: the pixels of a box of it. */
 const hides = (box: Box): Uint8Array => hiding(box, WIDTH, HEIGHT)
@@ -117,6 +53,13 @@ const bitsOf = (hidden: Uint8Array): string => {
   return Buffer.from(bits).toString('base64')
 }
 
+/** Expects a graphic to be a rectangle with square corners. */
+const expectSquareCorners = (layer: Graphic) => {
+  if (layer.props.shape.kind !== 'rect') throw new Error(`a ${layer.props.shape.kind}`)
+  expect(layer.props.shape.cornerRadius).toBe(0)
+  expect((layer.props.shape.corners ?? []).filter((radius) => radius !== 0)).toEqual([])
+}
+
 const panelBox = { x: 20, y: 20, width: 160, height: 100 }
 const panel = rectangle(panelBox, BLUE, 12)
 const pillBox = { x: 40, y: 40, width: 140, height: 48 }
@@ -127,6 +70,11 @@ const badge = rectangle(badgeBox, INK)
 const glass = [
   graphic({ kind: 'rect', cornerRadius: 12 }, panelBox, { fill: { type: 'solid', color: WHITE, opacity: 0.5 } }),
   ellipse({ x: 140, y: 40, width: 12, height: 12 }, WHITE),
+]
+/** A white card with a navy border inside its edge, and a navy bump 3 px high on the border's top. */
+const bumpedCard = [
+  stroked({ kind: 'rect', cornerRadius: 0 }, { x: 30, y: 40, width: 240, height: 160 }, NAVY, 10, WHITE),
+  rectangle({ x: 120, y: 37, width: 30, height: 3 }, NAVY),
 ]
 
 describe('matchShapes', () => {
@@ -155,9 +103,7 @@ describe('matchShapes', () => {
 
   it('rebuilds the piece under its rect, in the piece’s pixels, with the kit’s colour bound', () => {
     const steps: ShapeStep[] = []
-    const [disc, ...others] = graphicsOf(answerOf(job(), (step) => steps.push(step)))
-    expect(others).toEqual([])
-    if (!disc) throw new Error('no graphic')
+    const disc = onlyOne(graphicsIn(answerOf(job(), (step) => steps.push(step))))
     expect(disc.props.shape.kind).toBe('ellipse')
     expectBox(disc, { x: 20, y: 20, width: 80, height: 80 })
     expect(disc.bindings).toEqual({ fill: 'brand:accent' })
@@ -171,10 +117,8 @@ describe('matchShapes', () => {
       picture: pngBase64(ck, framed),
       pieces: [{ kind: 'shape' as const, rect: { x: 0, y: 0, width: WIDTH, height: HEIGHT } }],
     }
-    expect(graphicsOf(answerOf(job(whole)))).toHaveLength(2)
-    const [only, ...others] = graphicsOf(answerOf(job({ ...whole, hidden: bitsOf(hides(badgeBox)) })))
-    expect(others).toEqual([])
-    if (!only) throw new Error('no graphic')
+    expect(graphicsIn(answerOf(job(whole)))).toHaveLength(2)
+    const only = onlyOne(graphicsIn(answerOf(job({ ...whole, hidden: bitsOf(hides(badgeBox)) }))))
     expectBox(only, panelBox)
     expectColour(flatFill(only).color, BLUE)
   })
@@ -185,7 +129,7 @@ describe('matchShapes', () => {
       pieces: [{ kind: 'shape' as const, rect: { x: 0, y: 0, width: WIDTH, height: HEIGHT } }],
     }
     expect(answerOf(job(seen))).toMatchObject({ kind: 'picture', why: 'looksDifferent' })
-    expect(graphicsOf(answerOf(job({ ...seen, backgrounds: [[255, 255, 255]] })))).toHaveLength(1)
+    expect(graphicsIn(answerOf(job({ ...seen, backgrounds: [[255, 255, 255]] })))).toHaveLength(1)
   })
 })
 
@@ -200,25 +144,27 @@ describe('matchShapesOf', () => {
     expect(layer.props.strokes).toEqual([])
   })
 
-  it('rebuilds a rounded rectangle with its radius, and each corner’s own', () => {
-    const rounded = rebuiltAsOne([panel])
-    expectBox(rounded, panelBox)
-    expect(rounded.props.shape).toMatchObject({ kind: 'rect' })
-    expect(rounded.props.shape.kind === 'rect' && Math.abs(rounded.props.shape.cornerRadius - 12)).toBeLessThan(1)
-    const radii = [0, 30, 0, 14] as const
-    const tab = rebuiltAsOne([
-      graphic({ kind: 'rect', cornerRadius: 0, corners: [...radii] }, panelBox, {
-        fill: { type: 'solid', color: BLUE },
-      }),
-    ])
-    expectBox(tab, panelBox)
-    const corners = tab.props.shape.kind === 'rect' ? tab.props.shape.corners : undefined
-    expect(corners).toHaveLength(4)
-    // The round corners have their radii, and the square ones stay all but square.
-    expect(Math.abs((corners?.[1] ?? NaN) - 30)).toBeLessThan(1)
-    expect(Math.abs((corners?.[3] ?? NaN) - 14)).toBeLessThan(1)
-    expect(corners?.[0]).toBeLessThan(3)
-    expect(corners?.[2]).toBeLessThan(3)
+  it('rebuilds a rectangle with square corners as one, at any size and turned', () => {
+    expectSquareCorners(matchedAsOne(painted(1920, 1080, () => PAINT_BLUE)))
+    expectSquareCorners(matchedAsOne(painted(728, 90, () => PAINT_BLUE)))
+    const card = { x: 50, y: 50, width: 700, height: 500 }
+    expectSquareCorners(rebuiltAsOne([rectangle(card, BLUE)], { width: 800, height: 600 }))
+    expectSquareCorners(rebuiltAsOne([rectangle({ x: 44, y: 50, width: 112, height: 40, rotation: 20 }, BLUE)]))
+  })
+
+  it('rebuilds a rounded rectangle with its one radius, within a pixel', () => {
+    const rounded = [
+      { box: { x: 30, y: 40, width: 333, height: 211 }, radius: 16, width: 400, height: 300 },
+      { box: { x: 50, y: 50, width: 700, height: 500 }, radius: 32, width: 800, height: 600 },
+      { box: { x: 20, y: 30, width: 160, height: 80 }, radius: 40, width: WIDTH, height: HEIGHT },
+    ]
+    for (const { box, radius, width, height } of rounded) {
+      const layer = rebuiltAsOne([rectangle(box, BLUE, radius)], { width, height })
+      expectBox(layer, box)
+      if (layer.props.shape.kind !== 'rect') throw new Error(`a ${layer.props.shape.kind}`)
+      expect(Math.abs(layer.props.shape.cornerRadius - radius)).toBeLessThanOrEqual(1)
+      expect(layer.props.shape.corners).toBeUndefined()
+    }
   })
 
   it('rebuilds a pill as a rectangle rounded by half its height', () => {
@@ -228,117 +174,26 @@ describe('matchShapesOf', () => {
     expect(layer.name).toBe('Green pill')
   })
 
-  it('rebuilds a circle as an ellipse, at 40 px and at 300 px too', () => {
-    const box = { x: 50, y: 20, width: 100, height: 100 }
-    const layer = rebuiltAsOne([ellipse(box, RED)])
-    expect(layer.props.shape).toEqual({ kind: 'ellipse' })
-    expectBox(layer, box)
-    expect(flatFill(layer)).toEqual({ type: 'solid', color: RED })
-    const small = rebuiltAsOne([ellipse({ x: 4, y: 4, width: 32, height: 32 }, RED)], { width: 40, height: 40 })
-    expect(small.props.shape).toEqual({ kind: 'ellipse' })
-    expectBox(small, { x: 4, y: 4, width: 32, height: 32 })
-    const large = rebuiltAsOne([ellipse({ x: 20, y: 20, width: 260, height: 260 }, RED)], { width: 300, height: 300 })
-    expect(large.props.shape).toEqual({ kind: 'ellipse' })
-    expectBox(large, { x: 20, y: 20, width: 260, height: 260 })
-  })
-
-  it('rebuilds a turned rectangle with its turn', () => {
-    const box = { x: 40, y: 40, width: 120, height: 60, rotation: -30 }
-    const layer = rebuiltAsOne([rectangle(box, BLUE)])
-    expect(layer.props.shape.kind).toBe('rect')
-    expectBox(layer, box)
-    expect(Math.abs(layer.props.rotation + 30)).toBeLessThan(0.5)
-  })
-
-  it('rebuilds a line as a line with a stroke of its width', () => {
-    const line = graphic(
-      { kind: 'line', start: 'none', end: 'none' },
-      { x: 20, y: 28, width: 200, height: 4 },
-      { stroke: { paint: { type: 'solid', color: INK }, width: 4, align: 'center', cap: 'butt' } },
-    )
-    const layer = rebuiltAsOne([line], { width: 240, height: 60 })
-    expect(layer.props.shape).toMatchObject({ kind: 'line', start: 'none', end: 'none' })
-    expectBox(layer, { x: 20, y: 28, width: 200, height: 4 })
-    expect(layer.props.fills).toEqual([])
-    expect(layer.props.strokes).toHaveLength(1)
-    expect(layer.props.strokes[0]).toMatchObject({ paint: { type: 'solid', color: INK }, cap: 'butt' })
-    expect(layer.props.strokes[0]?.width).toBeCloseTo(4, 0)
-  })
-
-  it('rebuilds a ring and a rectangle’s outline as stroked shapes with no fill', () => {
-    const ringBox = { x: 50, y: 20, width: 100, height: 100 }
-    const stroke = (width: number) => ({
-      stroke: { paint: { type: 'solid' as const, color: '#7C3AEDFF' }, width, align: 'inside' as const },
-    })
-    const ring = rebuiltAsOne([graphic({ kind: 'ellipse' }, ringBox, stroke(8))])
-    expect(ring.props.shape).toEqual({ kind: 'ellipse' })
-    expectBox(ring, ringBox)
-    expect(ring.props.fills).toEqual([])
-    expect(ring.props.strokes[0]).toMatchObject({ paint: { type: 'solid', color: '#7C3AEDFF' }, align: 'inside' })
-    expect(Math.abs((ring.props.strokes[0]?.width ?? NaN) - 8)).toBeLessThan(0.5)
-    const outline = rebuiltAsOne([graphic({ kind: 'rect', cornerRadius: 10 }, panelBox, stroke(6))])
-    expect(outline.props.shape.kind).toBe('rect')
-    expectBox(outline, panelBox)
-    expect(outline.props.fills).toEqual([])
-    expect(Math.abs((outline.props.strokes[0]?.width ?? NaN) - 6)).toBeLessThan(0.5)
-  })
-
-  it('rebuilds a regular polygon as one of as many sides', () => {
-    const box = { x: 50, y: 20, width: 100, height: 100 }
-    for (const sides of [3, 6]) {
-      const layer = rebuiltAsOne([
-        graphic({ kind: 'polygon', sides, cornerRadius: 0 }, box, { fill: { type: 'solid', color: '#0891B2FF' } }),
-      ])
-      expect(layer.props.shape).toMatchObject({ kind: 'polygon', sides })
-      expectBox(layer, box, 1.5)
-      expect(Math.abs(layer.props.rotation)).toBeLessThan(1)
-    }
-  })
-
-  it('rebuilds a star as one of as many points', () => {
+  it('rebuilds each kind of shape as one graphic of its kind, and a gradient as a gradient fill', () => {
+    const size = { width: 260, height: 240 }
     const box = { x: 30, y: 20, width: 200, height: 200 }
-    const layer = rebuiltAsOne(
+    const fill = { fill: { type: 'solid' as const, color: BLUE } }
+    const tick = 'M10 55 L25 40 L42 57 L78 18 L92 32 L42 88 Z'
+    const kinds: [ShapeLayer, string][] = [
+      [ellipse(box, RED), 'ellipse'],
+      [rectangle({ x: 40, y: 60, width: 180, height: 90, rotation: -30 }, BLUE), 'rect'],
+      [rectangle({ x: 20, y: 118, width: 220, height: 4 }, INK), 'line'],
+      [stroked({ kind: 'ellipse' }, box, BLUE, 8), 'ellipse'],
+      [graphic({ kind: 'polygon', sides: 6, cornerRadius: 0 }, box, fill), 'polygon'],
+      [graphic({ kind: 'star', points: 5, innerRadius: 0.382, cornerRadius: 0 }, box, fill), 'star'],
       [
-        graphic({ kind: 'star', points: 5, innerRadius: 0.382, cornerRadius: 0 }, box, {
-          fill: { type: 'solid', color: '#F59E0BFF' },
-        }),
+        graphic({ kind: 'path', d: tick, fillRule: 'nonzero', drawnIn: { width: 100, height: 100 } }, box, fill),
+        'path',
       ],
-      { width: 260, height: 240 },
-    )
-    expect(layer.props.shape).toMatchObject({ kind: 'star', points: 5 })
-    expect(layer.props.shape.kind === 'star' && Math.abs(layer.props.shape.innerRadius - 0.382)).toBeLessThan(0.03)
-    expectBox(layer, box, 3)
-    expect(Math.abs(layer.props.rotation)).toBeLessThan(1)
-  })
-
-  it('rebuilds a linear gradient as a gradient fill along the way it runs', () => {
-    const box = { x: 10, y: 10, width: 220, height: 100 }
-    const layer = rebuiltAsOne([graphic({ kind: 'rect', cornerRadius: 0 }, box, { fill: LINEAR })], {
-      width: 240,
-      height: 120,
-    })
-    expect(layer.props.shape.kind).toBe('rect')
-    expectBox(layer, box)
-    const [fill] = layer.props.fills
-    if (fill?.type !== 'linear') throw new Error(`a ${fill?.type} fill`)
-    // It runs from left to right, level.
-    expect(fill.to.x - fill.from.x).toBeGreaterThan(0.8)
-    expect(Math.abs(fill.to.y - fill.from.y)).toBeLessThan(0.05)
-    expectColour(fill.stops[0]?.color, '#FDE68AFF')
-    expectColour(fill.stops.at(-1)?.color, '#B91C1CFF')
-  })
-
-  it('rebuilds two overlapping shapes as two graphics, back to front, the one behind whole', () => {
-    const discBox = { x: 110, y: 50, width: 80, height: 80 }
-    const [back, front, ...others] = rebuilt([panel, ellipse(discBox, CORAL)], { width: 220, height: 150 })
-    expect(others).toEqual([])
-    if (!back || !front) throw new Error('fewer than two graphics')
-    expect(back.props.shape.kind).toBe('rect')
-    expectBox(back, panelBox)
-    expectColour(flatFill(back).color, BLUE)
-    expect(front.props.shape).toEqual({ kind: 'ellipse' })
-    expectBox(front, discBox)
-    expectColour(flatFill(front).color, CORAL)
+    ]
+    for (const [layer, kind] of kinds) expect(rebuiltAsOne([layer], size).props.shape.kind).toBe(kind)
+    const shaded = rebuiltAsOne([graphic({ kind: 'rect', cornerRadius: 0 }, box, { fill: SUNSET })], size)
+    expect(shaded.props.fills.map((paint) => paint.type)).toEqual(['linear'])
   })
 
   it('rebuilds a pill with a drop shadow as one graphic with the shadow as its effect', () => {
@@ -347,9 +202,8 @@ describe('matchShapesOf', () => {
     expect(layer.props.shape.kind).toBe('rect')
     expectBox(layer, pillBox)
     expectColour(flatFill(layer).color, GREEN)
-    const [effect, ...others] = layer.props.effects
-    expect(others).toEqual([])
-    if (effect?.type !== 'dropShadow') throw new Error(`a ${effect?.type} effect`)
+    const effect = onlyOne(layer.props.effects)
+    if (effect.type !== 'dropShadow') throw new Error(`a ${effect.type} effect`)
     expect(Math.abs(effect.x)).toBeLessThan(1.5)
     expect(Math.abs(effect.y - 8)).toBeLessThan(1.5)
     expect(Math.abs(effect.blur - 16)).toBeLessThan(4)
@@ -376,44 +230,14 @@ describe('matchShapesOf', () => {
     expect(blue).toBeLessThan(60)
   })
 
-  it('rebuilds a see-through panel with its fill as see-through', () => {
-    const layer = rebuiltAsOne([
-      graphic({ kind: 'rect', cornerRadius: 12 }, panelBox, { fill: { type: 'solid', color: INK, opacity: 0.5 } }),
-    ])
-    expect(layer.props.shape.kind).toBe('rect')
-    expectBox(layer, panelBox)
-    const fill = flatFill(layer)
-    expect(fill.color).toBe(INK)
-    expect(fill.opacity).toBeCloseTo(0.5, 1)
-  })
-
-  it('rebuilds an icon of loose parts of one colour as one path', () => {
-    // A tick with a dot to each side of it.
-    const tick = graphic(
-      {
-        kind: 'path',
-        d: 'M10 55 L25 40 L42 57 L78 18 L92 32 L42 88 Z',
-        fillRule: 'nonzero',
-        drawnIn: { width: 100, height: 100 },
-      },
-      { x: 30, y: 10, width: 100, height: 100 },
-      { fill: { type: 'solid', color: INK } },
-    )
-    const dots = [
-      ellipse({ x: 10, y: 14, width: 14, height: 14 }, INK),
-      ellipse({ x: 136, y: 90, width: 14, height: 14 }, INK),
-    ]
-    const layer = rebuiltAsOne([tick, ...dots], { width: 160, height: 120 })
-    expect(layer.props.shape.kind).toBe('path')
-    // It reaches from the first dot to the second.
-    expectBox(layer, { x: 10, y: 14, width: 140, height: 90 })
-    expect(flatFill(layer)).toEqual({ type: 'solid', color: INK })
-  })
-
   it('keeps a picture of noise a picture, as it has too many parts', () => {
     const { answer, steps } = matched(noise(), { width: 90, height: 90 })
     expect(answer).toEqual({ kind: 'picture', why: 'tooManyParts' })
     expect(steps).toEqual(['patches'])
+  })
+
+  it('keeps a pattern too fine for the size it is cut at a picture, as it has too many parts', () => {
+    expect(matchShapesOf(ck, halftone(), {})).toEqual({ kind: 'picture', why: 'tooManyParts' })
   })
 
   it('keeps shaded art a picture, as it has too many parts', () => {
@@ -462,15 +286,35 @@ describe('matchShapesOf', () => {
     expect(answer.scores?.far).toBeGreaterThan(0.5)
   })
 
+  it('keeps a piece with nothing to draw a picture, as no rebuild looks the same', () => {
+    const nothing = [
+      painted(1, 1, () => PAINT_RED),
+      painted(50, 50, () => CLEAR),
+      painted(200, 100, () => [220, 38, 38, 20]),
+    ]
+    for (const piece of nothing)
+      expect(matchShapesOf(ck, piece, {})).toEqual({ kind: 'picture', why: 'looksDifferent' })
+  })
+
   it('rebuilds nothing of what other layers hide: a hidden badge on a panel leaves the panel whole', () => {
     expect(rebuilt([panel, badge]).map((layer) => layer.name)).toEqual(['Blue rounded rectangle', 'Black rectangle'])
-    const { answer } = matched([panel, badge], { around: { hidden: hides(badgeBox) } })
-    const [only, ...others] = graphicsOf(answer)
-    expect(others).toEqual([])
-    if (!only) throw new Error('no graphic')
+    const only = onlyOne(graphicsIn(matched([panel, badge], { around: { hidden: hides(badgeBox) } }).answer))
     expect(only.props.shape.kind).toBe('rect')
     expectBox(only, panelBox)
     expect(flatFill(only)).toEqual({ type: 'solid', color: BLUE })
+  })
+
+  it('makes no graphic of a shape other layers hide all of', () => {
+    const { piece, hidden } = bandAndDisc()
+    expect(graphicsIn(matchShapesOf(ck, piece, {}))).toHaveLength(3)
+    const shown = graphicsIn(matchShapesOf(ck, piece, {}, { hidden }))
+    expect(shown).toHaveLength(2)
+    for (const layer of shown) {
+      expect(flatFill(layer).color).not.toBe('#000000FF')
+      // Neither is the disc, 60 px across: they are the band and the white beside it, as tall as the piece.
+      expect(layer.props.width).toBeGreaterThan(90)
+      expect(layer.props.height).toBeGreaterThan(190)
+    }
   })
 
   it('rebuilds a disc half under a hidden block as one graphic that draws the disc where it shows', () => {
@@ -480,9 +324,7 @@ describe('matchShapesOf', () => {
       [ellipse({ x: 40, y: 20, width: 100, height: 100 }, RED), rectangle(block, INK)],
       { around: { hidden } },
     )
-    const [only, ...others] = graphicsOf(answer)
-    expect(others).toEqual([])
-    if (!only) throw new Error('no graphic')
+    const only = onlyOne(graphicsIn(answer))
     expect(flatFill(only)).toEqual({ type: 'solid', color: RED })
     // Where nothing hides the piece, the graphic draws what the piece shows.
     const drawn = drawGraphics(ck, [only], WIDTH, HEIGHT)
@@ -493,6 +335,14 @@ describe('matchShapesOf', () => {
     expect(looksSame('shape', piece, { width: WIDTH, height: HEIGHT, pixels: shown }).scores.far).toBe(0)
   })
 
+  it('rebuilds a small piece with a hidden block on it as what shows around the block', () => {
+    const blocked = painted(100, 40, (x, y) => (x >= 55 && x < 80 && y >= 12 && y < 28 ? PAINT_BLUE : PAINT_RED))
+    const hidden = hiding({ x: 50, y: 8, width: 35, height: 24 }, 100, 40)
+    const only = matchedAsOne(blocked, { hidden })
+    expect(only.props.shape.kind).toBe('rect')
+    expectBox(only, { x: 0, y: 0, width: 100, height: 40 })
+  })
+
   it('judges a see-through piece over the colour behind it', () => {
     // Over the grey a piece is judged on when nothing is known, the dot shows and the rebuild misses it.
     expect(matched(glass).answer).toMatchObject({ kind: 'picture', why: 'looksDifferent' })
@@ -500,11 +350,21 @@ describe('matchShapesOf', () => {
       kind: 'picture',
       why: 'looksDifferent',
     })
-    const { answer } = matched(glass, { around: { behind: [255, 255, 255] } })
-    const [only, ...others] = graphicsOf(answer)
-    expect(others).toEqual([])
-    expect(only?.props.shape.kind).toBe('rect')
-    expect(only && flatFill(only).opacity).toBeCloseTo(0.5, 1)
+    const only = onlyOne(graphicsIn(matched(glass, { around: { behind: [255, 255, 255] } }).answer))
+    expect(only.props.shape.kind).toBe('rect')
+    expect(flatFill(only).opacity).toBeCloseTo(0.5, 1)
+  })
+
+  it('takes edge rows mixed with the colour behind the piece as the edges of the shape beside them', () => {
+    const only = matchedAsOne(rimmed(), { behind: [255, 255, 255] })
+    expect(only.props.shape.kind).toBe('rect')
+    expect(Math.abs(only.props.width - 200)).toBeLessThanOrEqual(1)
+    expect(only.props.height).toBeGreaterThanOrEqual(60)
+    expect(only.props.height).toBeLessThanOrEqual(62.5)
+    // With nothing known behind it, the rows are shapes of their own, or the block is no rectangle.
+    const alone = matchShapesOf(ck, rimmed(), {})
+    const kinds = alone.kind === 'layers' ? graphicsIn(alone).map((layer) => layer.props.shape.kind) : []
+    expect(kinds).not.toEqual(['rect'])
   })
 
   it('binds a fill near a colour of the brand kit to it', () => {
@@ -519,6 +379,12 @@ describe('matchShapesOf', () => {
     expect(SHAPE_STEPS).toEqual(['patches', 'graphics', 'judging'])
     expect(matched([panel]).steps).toEqual(['patches', 'graphics', 'judging'])
     expect(matched(glass).steps).toEqual(['patches', 'graphics', 'judging', 'graphics', 'judging'])
+  })
+
+  it('rebuilds a border with a bump on it by tracing it and what it holds, when the shapes look different', () => {
+    const { answer, steps } = matched(bumpedCard, { width: 300, height: 240 })
+    expect(steps).toEqual(['patches', 'graphics', 'judging', 'graphics', 'judging'])
+    expect(answer.kind).toBe('layers')
   })
 
   it('gives the rule’s far share with its layers, and with a picture that was judged', () => {

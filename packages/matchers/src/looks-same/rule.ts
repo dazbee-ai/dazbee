@@ -8,6 +8,7 @@
 import type { Pixels } from '@dazbee/renderer'
 import type { LooksSameScores, PieceKind, Rgb } from '@dazbee/schema'
 
+import { blurAlong, blurRgb, normalisedGaussian } from './blur.ts'
 import { ciede2000, srgbToLab } from './colour.ts'
 import { inkColourDistance } from './colour-guard.ts'
 
@@ -79,6 +80,9 @@ const MEMO_LIMIT = 1_000_000
 /** What the rule has read from each piece alone, kept while the piece is judged again. */
 const piecesSeen = new WeakMap<Pixels, PieceSeen>()
 
+/** What `farShare` reads from a piece alone, kept while the piece is judged again. */
+const piecesFar = new WeakMap<Pixels, { width: number; height: number; fg: Uint8Array; rgb: Float32Array }>()
+
 /**
  * Judges a rebuild of a piece of the given kind. Both pictures are the same size, 8-bit RGBA with
  * straight alpha. Text is judged by SSIM, ink missed and the colour guard; shapes by the far share.
@@ -96,13 +100,11 @@ export function looksSame(kind: PieceKind, piece: Pixels, rebuild: Pixels, optio
   return { same, scores: { ...measured, inkColour } }
 }
 
-/** What `farShare` reads from a piece alone, kept while the piece is judged again. */
-const piecesFar = new WeakMap<Pixels, { width: number; height: number; fg: Uint8Array; rgb: Float32Array }>()
-
 /**
  * The share of a shape rebuild's foreground that is far from its piece's, the number shapes are judged by, read
  * as `looksSame` reads it over the see-through grey, without the numbers only text is judged by. The rebuild is
- * the piece's size, or already the size the rule shrinks the piece to.
+ * the piece's size, or already the size the rule shrinks the piece to. What is read from the piece alone is kept
+ * for the piece object, so a piece judged again must not have its pixels changed in place.
  */
 export function farShare(piece: Pixels, rebuild: Pixels): number {
   let seen = piecesFar.get(piece)
@@ -110,7 +112,7 @@ export function farShare(piece: Pixels, rebuild: Pixels): number {
     const scale = Math.min(1, LOOKS_SAME.maxSide / Math.max(piece.width, piece.height))
     const width = Math.max(1, Math.round(piece.width * scale))
     const height = Math.max(1, Math.round(piece.height * scale))
-    const a = shrink(piece, width, height)
+    const a = shrunk(piece, width, height)
     const fg = new Uint8Array(width * height)
     for (let i = 0; i < width * height; i++) fg[i] = (a.pixels[i * 4 + 3] ?? 0) > 127 ? 1 : 0
     seen = { width, height, fg, rgb: blurRgb(over(a, LOOKS_SAME.seeThrough), width, height, LOOKS_SAME.blur) }
@@ -121,7 +123,7 @@ export function farShare(piece: Pixels, rebuild: Pixels): number {
   if (!sameSize && (rebuild.width !== width || rebuild.height !== height)) {
     throw new Error(`the rebuild is ${rebuild.width}×${rebuild.height}, the piece ${piece.width}×${piece.height}`)
   }
-  const b = shrink(rebuild, width, height)
+  const b = shrunk(rebuild, width, height)
   const seenB = blurRgb(over(b, LOOKS_SAME.seeThrough), width, height, LOOKS_SAME.blur)
   const memo = new Map<number, number>()
   let count = 0
@@ -149,71 +151,8 @@ export function pixelDeltaE(a: Float32Array, b: Float32Array, i: number, memo: M
   return d
 }
 
-/** SSIM, ink missed and the far share, the worse over the backgrounds. */
-function measure(piece: Pixels, rebuild: Pixels, options: JudgeOptions): RuleScores {
-  if (piece.width !== rebuild.width || piece.height !== rebuild.height) {
-    throw new Error(`the rebuild is ${rebuild.width}×${rebuild.height}, the piece ${piece.width}×${piece.height}`)
-  }
-  const { width, height, pieceFg, seenOver } = pieceSeen(piece, options)
-  const n = width * height
-  const b = shrink(rebuild, width, height)
-
-  const rebuildFg = new Uint8Array(n)
-  let fgCount = 0
-  for (let i = 0; i < n; i++) {
-    rebuildFg[i] = (b.pixels[i * 4 + 3] ?? 0) > 127 ? 1 : 0
-    if (pieceFg[i] || rebuildFg[i]) fgCount++
-  }
-  const inkMissed = missedShare(pieceFg, rebuildFg, width, height)
-
-  let ssim = Infinity
-  let far = -Infinity
-  for (const seenA of seenOver) {
-    const seenB = blurRgb(over(b, seenA.background), width, height, LOOKS_SAME.blur)
-    ssim = Math.min(ssim, meanSsim(seenA, luma(seenB, n), width, height))
-    const memo = new Map<number, number>()
-    let farCount = 0
-    for (let i = 0; i < n; i++) {
-      if ((pieceFg[i] || rebuildFg[i]) && pixelDeltaE(seenA.rgb, seenB, i, memo) > LOOKS_SAME.farDeltaE) farCount++
-    }
-    far = Math.max(far, fgCount ? farCount / fgCount : 0)
-  }
-  return { ssim, inkMissed, far }
-}
-
-/**
- * What the rule reads from the piece alone, read once a piece and kept while it is judged again: its
- * size shrunk, its ink, and how it is seen over each background.
- */
-function pieceSeen(piece: Pixels, options: JudgeOptions): PieceSeen {
-  const backgrounds = options.backgrounds?.length ? options.backgrounds : [LOOKS_SAME.seeThrough]
-  const backgroundsKey = backgrounds.map((background) => background.join(',')).join(' ')
-  const kept = piecesSeen.get(piece)
-  if (kept && kept.pieceInk === options.pieceInk && kept.backgroundsKey === backgroundsKey) return kept
-  const scale = Math.min(1, LOOKS_SAME.maxSide / Math.max(piece.width, piece.height))
-  const width = Math.max(1, Math.round(piece.width * scale))
-  const height = Math.max(1, Math.round(piece.height * scale))
-  const n = width * height
-  const a = shrink(piece, width, height)
-  const ink = options.pieceInk ? shrinkMask(options.pieceInk, piece.width, piece.height, width, height) : null
-  const pieceFg = new Uint8Array(n)
-  for (let i = 0; i < n; i++) pieceFg[i] = (ink ? (ink[i] ?? 0) > 0.5 : (a.pixels[i * 4 + 3] ?? 0) > 127) ? 1 : 0
-  const seenOver = backgrounds.map((background) => {
-    const rgb = blurRgb(over(a, background), width, height, LOOKS_SAME.blur)
-    const lumaA = luma(rgb, n)
-    return { background, rgb, ...ssimWindowed(lumaA, width, height) }
-  })
-  const seen = { width, height, pieceFg, seenOver, pieceInk: options.pieceInk, backgroundsKey }
-  piecesSeen.set(piece, seen)
-  return seen
-}
-
 /** A picture shrunk with a box filter in premultiplied colour, its alpha kept; itself at its own size. */
 export function shrunk(picture: Pixels, width: number, height: number): Pixels {
-  return shrink(picture, width, height)
-}
-
-function shrink(picture: Pixels, width: number, height: number): Pixels {
   if (width === picture.width && height === picture.height) return picture
   const src = picture.pixels
   const out = new Uint8Array(width * height * 4)
@@ -250,59 +189,36 @@ function shrink(picture: Pixels, width: number, height: number): Pixels {
   return { width, height, pixels: out }
 }
 
-/** A 0–1 mask shrunk with a box filter; itself at its own size. */
-function shrinkMask(mask: Float32Array, fromWidth: number, fromHeight: number, width: number, height: number) {
-  if (width === fromWidth && height === fromHeight) return mask
-  const out = new Float32Array(width * height)
-  const sx = fromWidth / width
-  const sy = fromHeight / height
-  for (let y = 0; y < height; y++)
-    for (let x = 0; x < width; x++) {
-      let sum = 0
-      let weight = 0
-      for (let yy = Math.floor(y * sy); yy < Math.ceil((y + 1) * sy); yy++)
-        for (let xx = Math.floor(x * sx); xx < Math.ceil((x + 1) * sx); xx++) {
-          const f =
-            (Math.min((x + 1) * sx, xx + 1) - Math.max(x * sx, xx)) *
-            (Math.min((y + 1) * sy, yy + 1) - Math.max(y * sy, yy))
-          sum += (mask[yy * fromWidth + xx] ?? 0) * f
-          weight += f
-        }
-      out[y * width + x] = sum / weight
-    }
-  return out
-}
+/** SSIM, ink missed and the far share, the worse over the backgrounds. */
+function measure(piece: Pixels, rebuild: Pixels, options: JudgeOptions): RuleScores {
+  if (piece.width !== rebuild.width || piece.height !== rebuild.height) {
+    throw new Error(`the rebuild is ${rebuild.width}×${rebuild.height}, the piece ${piece.width}×${piece.height}`)
+  }
+  const { width, height, pieceFg, seenOver } = pieceSeen(piece, options)
+  const n = width * height
+  const b = shrunk(rebuild, width, height)
 
-/** The share of the piece's ink with no rebuilt ink within 1 px. */
-function missedShare(pieceFg: Uint8Array, rebuildFg: Uint8Array, width: number, height: number): number {
-  const near = dilate(rebuildFg, width, height)
-  let ink = 0
-  let missed = 0
-  for (let i = 0; i < width * height; i++)
-    if (pieceFg[i]) {
-      ink++
-      if (!near[i]) missed++
-    }
-  return ink ? missed / ink : 0
-}
+  const rebuildFg = new Uint8Array(n)
+  let fgCount = 0
+  for (let i = 0; i < n; i++) {
+    rebuildFg[i] = (b.pixels[i * 4 + 3] ?? 0) > 127 ? 1 : 0
+    if (pieceFg[i] || rebuildFg[i]) fgCount++
+  }
+  const inkMissed = missedShare(pieceFg, rebuildFg, width, height)
 
-/** A mask grown by 1 px each way (a 3×3 square). */
-function dilate(mask: Uint8Array, width: number, height: number): Uint8Array {
-  const across = new Uint8Array(width * height)
-  const out = new Uint8Array(width * height)
-  for (let y = 0; y < height; y++)
-    for (let x = 0; x < width; x++) {
-      let v = 0
-      for (let t = Math.max(0, x - 1); t <= Math.min(width - 1, x + 1) && !v; t++) v = mask[y * width + t] ?? 0
-      across[y * width + x] = v
+  let ssim = Infinity
+  let far = -Infinity
+  for (const seenA of seenOver) {
+    const seenB = blurRgb(over(b, seenA.background), width, height, LOOKS_SAME.blur)
+    ssim = Math.min(ssim, meanSsim(seenA, luma(seenB, n), width, height))
+    const memo = new Map<number, number>()
+    let farCount = 0
+    for (let i = 0; i < n; i++) {
+      if ((pieceFg[i] || rebuildFg[i]) && pixelDeltaE(seenA.rgb, seenB, i, memo) > LOOKS_SAME.farDeltaE) farCount++
     }
-  for (let y = 0; y < height; y++)
-    for (let x = 0; x < width; x++) {
-      let v = 0
-      for (let t = Math.max(0, y - 1); t <= Math.min(height - 1, y + 1) && !v; t++) v = across[t * width + x] ?? 0
-      out[y * width + x] = v
-    }
-  return out
+    far = Math.max(far, fgCount ? farCount / fgCount : 0)
+  }
+  return { ssim, inkMissed, far }
 }
 
 /** A picture's RGB, 0–255, over a flat background. */
@@ -317,63 +233,49 @@ function over(picture: Pixels, background: Rgb): Float32Array {
   return out
 }
 
-/** An RGB picture blurred by a Gaussian of σ (radius 3σ), its edges clamped. */
-function blurRgb(rgb: Float32Array, width: number, height: number, sigma: number): Float32Array {
-  const taps = normalisedGaussian(Math.ceil(3 * sigma), sigma)
-  return blurAlong(blurAlong(rgb, width, height, 3, taps, 'x'), width, height, 3, taps, 'y')
-}
-
-/** The taps of a Gaussian of σ from -radius to radius, summing to 1. */
-function normalisedGaussian(radius: number, sigma: number): Float64Array {
-  const taps = Array.from({ length: 2 * radius + 1 }, (_, i) => Math.exp(-((i - radius) ** 2) / (2 * sigma * sigma)))
-  let sum = 0
-  for (const tap of taps) sum += tap
-  return Float64Array.from(taps, (tap) => tap / sum)
+/** Pixel i of an RGB picture rounded to 8 bits a channel, as one number. */
+function packed(rgb: Float32Array, i: number): number {
+  return (Math.round(rgb[i * 3] ?? 0) << 16) | (Math.round(rgb[i * 3 + 1] ?? 0) << 8) | Math.round(rgb[i * 3 + 2] ?? 0)
 }
 
 /**
- * One pass of a separable blur along x or y, each of a picture's channels on its own, its edges
- * clamped. Each output value sums its taps from the first to the last.
+ * What the rule reads from the piece alone, read once a piece and kept while it is judged again: its
+ * size shrunk, its ink, and how it is seen over each background.
  */
-function blurAlong(
-  from: Float32Array,
-  width: number,
-  height: number,
-  channels: number,
-  taps: Float64Array,
-  along: 'x' | 'y',
-): Float32Array {
-  const out = new Float32Array(from.length)
-  const count = taps.length
-  const radius = (count - 1) / 2
-  const length = along === 'x' ? width : height
-  // For each place along the axis, the place each tap reads, clamped to the picture.
-  const reads = new Int32Array(length * count)
-  for (let at = 0; at < length; at++)
-    for (let t = 0; t < count; t++) reads[at * count + t] = Math.min(length - 1, Math.max(0, at + t - radius))
-  // How far apart in `from` two neighbours along the axis are.
-  const step = along === 'x' ? channels : width * channels
-  for (let y = 0; y < height; y++)
-    for (let x = 0; x < width; x++) {
-      const first = (along === 'x' ? x : y) * count
-      const start = along === 'x' ? y * width * channels : x * channels
-      const o = (y * width + x) * channels
-      for (let c = 0; c < channels; c++) {
-        const channelStart = start + c
-        let v = 0
-        for (let t = 0; t < count; t++) v += (taps[t] ?? 0) * (from[channelStart + (reads[first + t] ?? 0) * step] ?? 0)
-        out[o + c] = v
-      }
-    }
-  return out
+function pieceSeen(piece: Pixels, options: JudgeOptions): PieceSeen {
+  const backgrounds = options.backgrounds?.length ? options.backgrounds : [LOOKS_SAME.seeThrough]
+  const backgroundsKey = backgrounds.map((background) => background.join(',')).join(' ')
+  const kept = piecesSeen.get(piece)
+  if (kept && kept.pieceInk === options.pieceInk && kept.backgroundsKey === backgroundsKey) return kept
+  const scale = Math.min(1, LOOKS_SAME.maxSide / Math.max(piece.width, piece.height))
+  const width = Math.max(1, Math.round(piece.width * scale))
+  const height = Math.max(1, Math.round(piece.height * scale))
+  const n = width * height
+  const a = shrunk(piece, width, height)
+  const ink = options.pieceInk ? shrinkMask(options.pieceInk, piece.width, piece.height, width, height) : null
+  const pieceFg = new Uint8Array(n)
+  for (let i = 0; i < n; i++) pieceFg[i] = (ink ? (ink[i] ?? 0) > 0.5 : (a.pixels[i * 4 + 3] ?? 0) > 127) ? 1 : 0
+  const seenOver = backgrounds.map((background) => {
+    const rgb = blurRgb(over(a, background), width, height, LOOKS_SAME.blur)
+    const lumaA = luma(rgb, n)
+    return { background, rgb, ...ssimWindowed(lumaA, width, height) }
+  })
+  const seen = { width, height, pieceFg, seenOver, pieceInk: options.pieceInk, backgroundsKey }
+  piecesSeen.set(piece, seen)
+  return seen
 }
 
-/** Rec. 709 luminance of gamma-encoded RGB. */
-function luma(rgb: Float32Array, n: number): Float32Array {
-  const out = new Float32Array(n)
-  for (let i = 0; i < n; i++)
-    out[i] = 0.2126 * (rgb[i * 3] ?? 0) + 0.7152 * (rgb[i * 3 + 1] ?? 0) + 0.0722 * (rgb[i * 3 + 2] ?? 0)
-  return out
+/** The share of the piece's ink with no rebuilt ink within 1 px. */
+function missedShare(pieceFg: Uint8Array, rebuildFg: Uint8Array, width: number, height: number): number {
+  const near = dilate(rebuildFg, width, height)
+  let ink = 0
+  let missed = 0
+  for (let i = 0; i < width * height; i++)
+    if (pieceFg[i]) {
+      ink++
+      if (!near[i]) missed++
+    }
+  return ink ? missed / ink : 0
 }
 
 /**
@@ -400,6 +302,37 @@ function meanSsim(x: Windowed, y: Float32Array, width: number, height: number): 
   return sum / n
 }
 
+/** Rec. 709 luminance of gamma-encoded RGB. */
+function luma(rgb: Float32Array, n: number): Float32Array {
+  const out = new Float32Array(n)
+  for (let i = 0; i < n; i++)
+    out[i] = 0.2126 * (rgb[i * 3] ?? 0) + 0.7152 * (rgb[i * 3 + 1] ?? 0) + 0.0722 * (rgb[i * 3 + 2] ?? 0)
+  return out
+}
+
+/** A 0–1 mask shrunk with a box filter; itself at its own size. */
+function shrinkMask(mask: Float32Array, fromWidth: number, fromHeight: number, width: number, height: number) {
+  if (width === fromWidth && height === fromHeight) return mask
+  const out = new Float32Array(width * height)
+  const sx = fromWidth / width
+  const sy = fromHeight / height
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++) {
+      let sum = 0
+      let weight = 0
+      for (let yy = Math.floor(y * sy); yy < Math.ceil((y + 1) * sy); yy++)
+        for (let xx = Math.floor(x * sx); xx < Math.ceil((x + 1) * sx); xx++) {
+          const f =
+            (Math.min((x + 1) * sx, xx + 1) - Math.max(x * sx, xx)) *
+            (Math.min((y + 1) * sy, yy + 1) - Math.max(y * sy, yy))
+          sum += (mask[yy * fromWidth + xx] ?? 0) * f
+          weight += f
+        }
+      out[y * width + x] = sum / weight
+    }
+  return out
+}
+
 /** A luminance picture, and its mean and its square's mean in the SSIM window. */
 function ssimWindowed(luma: Float32Array, width: number, height: number): Windowed {
   const squared = new Float32Array(width * height)
@@ -408,12 +341,26 @@ function ssimWindowed(luma: Float32Array, width: number, height: number): Window
   return { luma, mean: ssimBlur(luma, width, height, taps), square: ssimBlur(squared, width, height, taps) }
 }
 
+/** A mask grown by 1 px each way (a 3×3 square). */
+function dilate(mask: Uint8Array, width: number, height: number): Uint8Array {
+  const across = new Uint8Array(width * height)
+  const out = new Uint8Array(width * height)
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++) {
+      let v = 0
+      for (let t = Math.max(0, x - 1); t <= Math.min(width - 1, x + 1) && !v; t++) v = mask[y * width + t] ?? 0
+      across[y * width + x] = v
+    }
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++) {
+      let v = 0
+      for (let t = Math.max(0, y - 1); t <= Math.min(height - 1, y + 1) && !v; t++) v = across[t * width + x] ?? 0
+      out[y * width + x] = v
+    }
+  return out
+}
+
 /** One channel blurred by the SSIM window's 11 taps, its edges clamped. */
 function ssimBlur(src: Float32Array, width: number, height: number, taps: Float64Array): Float32Array {
   return blurAlong(blurAlong(src, width, height, 1, taps, 'x'), width, height, 1, taps, 'y')
-}
-
-/** Pixel i of an RGB picture rounded to 8 bits a channel, as one number. */
-function packed(rgb: Float32Array, i: number): number {
-  return (Math.round(rgb[i * 3] ?? 0) << 16) | (Math.round(rgb[i * 3 + 1] ?? 0) << 8) | Math.round(rgb[i * 3 + 2] ?? 0)
 }

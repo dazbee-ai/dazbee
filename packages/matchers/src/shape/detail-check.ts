@@ -80,7 +80,8 @@ export function judgedScale(piece: { width: number; height: number }): number {
 
 /**
  * Reads how a rebuild differs from its piece in detail. The rebuild is given at the piece's size, or as what draws
- * it a number of times that size, which keeps an enlarged rebuild sharp.
+ * it a number of times that size, which keeps an enlarged rebuild sharp. The piece at the size it is judged at is
+ * kept for the piece object, so a piece read again must not have its pixels changed in place.
  */
 export function detailOf(
   piece: Pixels,
@@ -154,91 +155,6 @@ export function detailOf(
     different,
     halo: thickBlobs(halo, width, height).largest,
   }
-}
-
-/** Where a picture's cover (alpha of a half or more) lies within `reach` pixels, each way. */
-function coverNear({ width, height, data }: FloatPicture, reach: number): Uint8Array {
-  const along = new Uint8Array(width * height)
-  const out = new Uint8Array(width * height)
-  for (let y = 0; y < height; y++)
-    for (let x = 0; x < width; x++) {
-      for (let d = -reach; d <= reach; d++) {
-        const xx = x + d
-        if (xx >= 0 && xx < width && (data[(y * width + xx) * 4 + 3] ?? 0) >= 0.5) {
-          along[y * width + x] = 1
-          break
-        }
-      }
-    }
-  for (let y = 0; y < height; y++)
-    for (let x = 0; x < width; x++) {
-      for (let d = -reach; d <= reach; d++) {
-        const yy = y + d
-        if (yy >= 0 && yy < height && along[yy * width + x]) {
-          out[y * width + x] = 1
-          break
-        }
-      }
-    }
-  return out
-}
-
-/** Where pixel i of a side is in its Lab, worked out once. */
-function labOf(side: Side, i: number): number {
-  if (Number.isNaN(side.lab[i * 3] ?? 0)) {
-    side.lab.set(srgbToLab(side.rgb[i * 3] ?? 0, side.rgb[i * 3 + 1] ?? 0, side.rgb[i * 3 + 2] ?? 0), i * 3)
-  }
-  return i * 3
-}
-
-/**
- * Whether side `to` explains the colour of the pixel of `from` at (x, y): a pixel within one pixel has it, or it
- * is a mix of two colours `to` has within two pixels.
- */
-function explained(from: Side, to: Side, x: number, y: number, memo: Map<number, number>): boolean {
-  const { width, height } = from
-  const i = y * width + x
-  const one = from.rgb.subarray(i * 3, i * 3 + 3)
-  for (let dy = -1; dy <= 1; dy++)
-    for (let dx = -1; dx <= 1; dx++) {
-      const xx = x + dx
-      const yy = y + dy
-      if (xx < 0 || yy < 0 || xx >= width || yy >= height) continue
-      const j = yy * width + xx
-      if (pixelDeltaE(one, to.rgb.subarray(j * 3, j * 3 + 3), 0, memo) <= DETAIL.farDeltaE) return true
-    }
-  const p = labOf(from, i)
-  const pl = from.lab[p] ?? 0
-  const pa = from.lab[p + 1] ?? 0
-  const pb = from.lab[p + 2] ?? 0
-  const around: number[] = []
-  for (let dy = -2; dy <= 2; dy++)
-    for (let dx = -2; dx <= 2; dx++) {
-      const xx = x + dx
-      const yy = y + dy
-      if (xx < 0 || yy < 0 || xx >= width || yy >= height) continue
-      around.push(labOf(to, yy * width + xx))
-    }
-  const lab = to.lab
-  const within = DETAIL.mix ** 2
-  for (let s = 0; s < around.length; s++) {
-    const a = around[s] ?? 0
-    const al = lab[a] ?? 0
-    const aa = lab[a + 1] ?? 0
-    const ab = lab[a + 2] ?? 0
-    for (let t = s + 1; t < around.length; t++) {
-      const b = around[t] ?? 0
-      const dl = (lab[b] ?? 0) - al
-      const da = (lab[b + 1] ?? 0) - aa
-      const db = (lab[b + 2] ?? 0) - ab
-      const length = dl * dl + da * da + db * db
-      // Two colours that are nearly one are no mix to lie on.
-      if (length < within) continue
-      const k = Math.max(0, Math.min(1, ((pl - al) * dl + (pa - aa) * da + (pb - ab) * db) / length))
-      if ((pl - al - k * dl) ** 2 + (pa - aa - k * da) ** 2 + (pb - ab - k * db) ** 2 <= within) return true
-    }
-  }
-  return false
 }
 
 /** A picture at a size: shrunk by area, or enlarged with a bicubic curve on its colour times its alpha. */
@@ -320,6 +236,83 @@ function softened(rgb: Float32Array, width: number, height: number): Float32Arra
   return out
 }
 
+/**
+ * Whether side `to` explains the colour of the pixel of `from` at (x, y): a pixel within one pixel has it, or it
+ * is a mix of two colours `to` has within two pixels.
+ */
+function explained(from: Side, to: Side, x: number, y: number, memo: Map<number, number>): boolean {
+  const { width, height } = from
+  const i = y * width + x
+  const one = from.rgb.subarray(i * 3, i * 3 + 3)
+  for (let dy = -1; dy <= 1; dy++)
+    for (let dx = -1; dx <= 1; dx++) {
+      const xx = x + dx
+      const yy = y + dy
+      if (xx < 0 || yy < 0 || xx >= width || yy >= height) continue
+      const j = yy * width + xx
+      if (pixelDeltaE(one, to.rgb.subarray(j * 3, j * 3 + 3), 0, memo) <= DETAIL.farDeltaE) return true
+    }
+  const p = labOf(from, i)
+  const pl = from.lab[p] ?? 0
+  const pa = from.lab[p + 1] ?? 0
+  const pb = from.lab[p + 2] ?? 0
+  const around: number[] = []
+  for (let dy = -2; dy <= 2; dy++)
+    for (let dx = -2; dx <= 2; dx++) {
+      const xx = x + dx
+      const yy = y + dy
+      if (xx < 0 || yy < 0 || xx >= width || yy >= height) continue
+      around.push(labOf(to, yy * width + xx))
+    }
+  const lab = to.lab
+  const within = DETAIL.mix ** 2
+  for (let s = 0; s < around.length; s++) {
+    const a = around[s] ?? 0
+    const al = lab[a] ?? 0
+    const aa = lab[a + 1] ?? 0
+    const ab = lab[a + 2] ?? 0
+    for (let t = s + 1; t < around.length; t++) {
+      const b = around[t] ?? 0
+      const dl = (lab[b] ?? 0) - al
+      const da = (lab[b + 1] ?? 0) - aa
+      const db = (lab[b + 2] ?? 0) - ab
+      const length = dl * dl + da * da + db * db
+      // Two colours that are nearly one are no mix to lie on.
+      if (length < within) continue
+      const k = Math.max(0, Math.min(1, ((pl - al) * dl + (pa - aa) * da + (pb - ab) * db) / length))
+      if ((pl - al - k * dl) ** 2 + (pa - aa - k * da) ** 2 + (pb - ab - k * db) ** 2 <= within) return true
+    }
+  }
+  return false
+}
+
+/** Where a picture's cover (alpha of a half or more) lies within `reach` pixels, each way. */
+function coverNear({ width, height, data }: FloatPicture, reach: number): Uint8Array {
+  const along = new Uint8Array(width * height)
+  const out = new Uint8Array(width * height)
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++) {
+      for (let d = -reach; d <= reach; d++) {
+        const xx = x + d
+        if (xx >= 0 && xx < width && (data[(y * width + xx) * 4 + 3] ?? 0) >= 0.5) {
+          along[y * width + x] = 1
+          break
+        }
+      }
+    }
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++) {
+      for (let d = -reach; d <= reach; d++) {
+        const yy = y + d
+        if (yy >= 0 && yy < height && along[yy * width + x]) {
+          out[y * width + x] = 1
+          break
+        }
+      }
+    }
+  return out
+}
+
 /** The blobs (8-connected) of a mask that hold a `core` × `core` square: the largest one's pixels and all of theirs. */
 function thickBlobs(mask: Uint8Array, width: number, height: number, core = 3): { largest: number; total: number } {
   // Where a core × core square of the mask starts.
@@ -370,4 +363,12 @@ function thickBlobs(mask: Uint8Array, width: number, height: number, core = 3): 
     if (size > largest) largest = size
   }
   return { largest, total }
+}
+
+/** Where pixel i of a side is in its Lab, worked out once. */
+function labOf(side: Side, i: number): number {
+  if (Number.isNaN(side.lab[i * 3] ?? 0)) {
+    side.lab.set(srgbToLab(side.rgb[i * 3] ?? 0, side.rgb[i * 3 + 1] ?? 0, side.rgb[i * 3 + 2] ?? 0), i * 3)
+  }
+  return i * 3
 }

@@ -7,6 +7,17 @@ import type { Color, DropShadow, Paint, Shape } from '@dazbee/schema'
 
 import type { ShapeLayer, ShapeStroke } from './draw-layers.ts'
 
+/** A linear gradient that runs level across a graphic, from pale yellow at its left to dark red at its right. */
+export const SUNSET: Paint = {
+  type: 'linear',
+  from: { x: 0, y: 0.5 },
+  to: { x: 1, y: 0.5 },
+  stops: [
+    { offset: 0, color: '#FDE68AFF' },
+    { offset: 1, color: '#B91C1CFF' },
+  ],
+}
+
 /** A PNG's pixels, 8-bit RGBA with straight alpha. */
 export function decodePng(ck: CanvasKit, bytes: Uint8Array): Pixels {
   const image = ck.MakeImageFromEncoded(bytes)
@@ -56,6 +67,19 @@ export const ellipse = (
   box: { x: number; y: number; width: number; height: number; rotation?: number },
   color: Color,
 ): ShapeLayer => graphic({ kind: 'ellipse' }, box, { fill: { type: 'solid', color } })
+
+/** A shape drawn by a stroke of one colour inside its edge, with a fill of one colour under it when one is given. */
+export const stroked = (
+  shape: Shape,
+  box: { x: number; y: number; width: number; height: number; rotation?: number },
+  color: Color,
+  width: number,
+  fill?: Color,
+): ShapeLayer =>
+  graphic(shape, box, {
+    ...(fill ? { fill: { type: 'solid', color: fill } } : {}),
+    stroke: { paint: { type: 'solid', color }, width, align: 'inside' },
+  })
 
 /** A graphic with a drop shadow, or a glow when the shadow has no offset. */
 export const shadowed = (layer: ShapeLayer, shadow: Omit<DropShadow, 'type' | 'spread'>): ShapeLayer => ({

@@ -4,7 +4,7 @@ import { loadCanvasKit } from '@dazbee/renderer/node'
 
 import { drawGraphics, type ShapeLayer } from './draw-layers.ts'
 import { marchingSquares } from './outlines.ts'
-import { distanceTo, fitPrimitives, type Primitive, repeatsRound } from './primitives.ts'
+import { distanceTo, fitPrimitives, type Primitive } from './primitives.ts'
 import { ellipse, graphic, rectangle } from './test-pieces.ts'
 
 const ck = await loadCanvasKit()
@@ -36,6 +36,21 @@ const closest = (layer: ShapeLayer): Primitive => {
   return first
 }
 
+/**
+ * The outline of a level rectangle of whole pixels, `width` × `height` at (`x0`, `y0`): a point for each pixel of
+ * its perimeter, clockwise from its top left corner. The two points beside each corner lie `swell` pixels outside
+ * the rectangle, as a cut's outline does round a square corner.
+ */
+const perimeter = (x0: number, y0: number, width: number, height: number, swell = 0): Float32Array => {
+  const out = (k: number, count: number) => (k === 0 || k === count - 1 ? swell : 0)
+  const xy: number[] = []
+  for (let x = 0; x < width; x++) xy.push(x0 + x + 0.5, y0 - out(x, width))
+  for (let y = 0; y < height; y++) xy.push(x0 + width + out(y, height), y0 + y + 0.5)
+  for (let x = width - 1; x >= 0; x--) xy.push(x0 + x + 0.5, y0 + height + out(x, width))
+  for (let y = height - 1; y >= 0; y--) xy.push(x0 - out(y, height), y0 + y + 0.5)
+  return Float32Array.from(xy)
+}
+
 /** Expects a primitive to have a box's centre and size within half a pixel, and its turn within half a degree. */
 const expectPlaced = (
   fit: Primitive,
@@ -54,16 +69,6 @@ const expectBox = (fit: Primitive, box: Parameters<typeof expectPlaced>[1]) => {
   expect(fit.max).toBeLessThan(0.5)
 }
 
-const star = graphic(
-  { kind: 'star', points: 5, innerRadius: 0.382, cornerRadius: 0 },
-  { x: 50, y: 20, width: 100, height: 100 },
-  { fill: { type: 'solid', color: INK } },
-)
-const hexagon = graphic(
-  { kind: 'polygon', sides: 6, cornerRadius: 0 },
-  { x: 50, y: 20, width: 100, height: 100 },
-  { fill: { type: 'solid', color: INK } },
-)
 /** An L: a square with its top right quarter and more cut away. */
 const corner = graphic(
   {
@@ -83,6 +88,25 @@ describe('fitPrimitives', () => {
     expect(fit.kind).toBe('rect')
     expectBox(fit, box)
     expect(fit.corners).toEqual([0, 0, 0, 0])
+  })
+
+  it('gives a rectangle of any size square corners, also where its outline swells a little beside each corner', () => {
+    const sizes = [
+      [40, 218],
+      [73, 406],
+      [500, 300],
+      [300, 47],
+      [218, 40],
+      [44, 218],
+      [20, 100],
+    ] as const
+    for (const [width, height] of sizes)
+      for (const swell of [0, 0.09]) {
+        const rect = fitPrimitives(perimeter(30, 20, width, height, swell)).find((fit) => fit.kind === 'rect')
+        if (!rect) throw new Error('no rectangle was fitted')
+        expectPlaced(rect, { x: 30, y: 20, width, height })
+        expect(rect.corners).toEqual([0, 0, 0, 0])
+      }
   })
 
   it('gives a rectangle drawn between pixels back where it was drawn', () => {
@@ -214,18 +238,5 @@ describe('distanceTo', () => {
     expect(distanceTo(fit, 170, 70)).toBeCloseTo(0, 0)
     expect(distanceTo(fit, 100, 35)).toBeCloseTo(0, 0)
     expect(distanceTo(fit, 180, 70)).toBeCloseTo(10, 0)
-  })
-})
-
-describe('repeatsRound', () => {
-  it('says a star’s and a regular polygon’s outlines repeat round their centre', () => {
-    expect(repeatsRound(outlineOf(star))).toBe(true)
-    expect(repeatsRound(outlineOf(hexagon))).toBe(true)
-  })
-
-  it('says a circle’s, a long rectangle’s and an L’s do not', () => {
-    expect(repeatsRound(outlineOf(ellipse({ x: 50, y: 20, width: 100, height: 100 }, INK)))).toBe(false)
-    expect(repeatsRound(outlineOf(rectangle({ x: 30, y: 30, width: 140, height: 80 }, INK)))).toBe(false)
-    expect(repeatsRound(outlineOf(corner))).toBe(false)
   })
 })

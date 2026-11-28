@@ -6,6 +6,7 @@ import { drawGraphics, type ShapeLayer } from './draw-layers.ts'
 import { holds } from './outlines.ts'
 import { toFloatPicture } from './parts/float-picture.ts'
 import { type Patch, type Split, splitPatches } from './patches.ts'
+import { bandAndDisc, painted } from './test-matching.ts'
 import { ellipse, graphic, hiding, noise, rectangle, shadowed } from './test-pieces.ts'
 
 const ck = await loadCanvasKit()
@@ -171,5 +172,69 @@ describe('splitPatches', () => {
     expect(split?.patches[0]?.rgb.map(Math.round)).toEqual([37, 99, 235])
     expect(split?.patchOf[70 * 200 + 100]).toBe(split?.patches[0]?.id)
     expect(split?.patches[0]?.loops.filter((loop) => loop.area < 0)).toEqual([])
+  })
+
+  it('counts the pixels of each patch that no other layer hides: none of a patch hidden whole', () => {
+    const { piece, hidden } = bandAndDisc()
+    const split = splitPatches(toFloatPicture(piece), hidden)
+    if (!split) throw new Error('the piece was cut no further')
+    expect(split.patches).toHaveLength(3)
+    for (const patch of split.patches) {
+      let shown = 0
+      split.patchOf.forEach((id, i) => {
+        if (id === patch.id && !hidden[i]) shown++
+      })
+      expect(patch.shown).toBe(shown)
+    }
+    // The band and the white show; the disc, of the band's red, is all under the hidden box.
+    const disc = split.patches[split.patchOf[100 * 300 + 220] ?? -1]
+    const band = split.patches[split.patchOf[100 * 300 + 50] ?? -1]
+    expect(disc?.area).toBeGreaterThan(2700)
+    expect(disc?.shown).toBe(0)
+    expect(band?.shown).toBe(100 * 200)
+    expect(disc?.colour).toBe(band?.colour)
+    for (const patch of splitPatches(toFloatPicture(piece))?.patches ?? []) expect(patch.shown).toBe(patch.area)
+    // The disc lies inside the hidden box, so none of its pixels is beside one that shows.
+    expect(disc?.beside).toBe(0)
+  })
+
+  it('gives a patch hidden up to its edge the colour it was cut by, and counts its pixels beside what shows', () => {
+    // Two blue blocks on a green ground: the right one is all under the hidden box.
+    const layers = [
+      rectangle({ x: 0, y: 0, width: 200, height: 100 }, GREEN),
+      rectangle({ x: 20, y: 20, width: 60, height: 60 }, BLUE),
+      rectangle({ x: 120, y: 20, width: 60, height: 60 }, BLUE),
+    ]
+    const hidden = hiding({ x: 120, y: 20, width: 60, height: 60 }, 200, 100)
+    const split = splitPatches(toFloatPicture(drawGraphics(ck, layers, 200, 100)), hidden)
+    const block = split?.patches[split.patchOf[50 * 200 + 150] ?? -1]
+    expect(block?.shown).toBe(0)
+    // Its outermost pixels lie beside the ground, which shows: 4 sides of 60, less the corners counted once.
+    expect(block?.beside).toBe(4 * 60 - 4)
+    expect(block?.rgb.map(Math.round)).toEqual([0x25, 0x63, 0xeb])
+  })
+
+  it('cuts a picture that covers nothing into no patches', () => {
+    const split = splitPatches(toFloatPicture(painted(50, 50, () => [0, 0, 0, 0])))
+    expect(split).toMatchObject({ width: 50, height: 50, patches: [], unexplained: 0, tooMany: false })
+    expect(split?.patchOf.every((id) => id === -1)).toBe(true)
+  })
+
+  it('stops tracing outlines once more patches than asked for hold one, and says so', () => {
+    // Six squares of 20 px in a row, apart.
+    const squares = Array.from({ length: 6 }, (_, i) =>
+      rectangle({ x: 10 + i * 30, y: 20, width: 20, height: 20 }, INK),
+    )
+    const picture = toFloatPicture(drawGraphics(ck, squares, 200, 60))
+    const all = splitPatches(picture)
+    expect(all?.tooMany).toBe(false)
+    expect(all?.patches).toHaveLength(6)
+    expect(all?.patches.every((patch) => patch.loops.length > 0)).toBe(true)
+    const some = splitPatches(picture, undefined, { most: { patches: 3, outline: 2 } })
+    expect(some?.tooMany).toBe(true)
+    expect(some?.patches).toHaveLength(6)
+    expect(some?.patches.filter((patch) => patch.loops.length > 0)).toHaveLength(4)
+    // Six is not more than six.
+    expect(splitPatches(picture, undefined, { most: { patches: 6, outline: 2 } })?.tooMany).toBe(false)
   })
 })

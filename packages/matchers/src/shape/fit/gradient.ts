@@ -1,4 +1,4 @@
-// Gradients: a part's fill as a linear or radial gradient, kept where drawing it so lowers the part's
+// Gradients: a patch's fill as a linear or radial gradient, kept where drawing it so lowers the patch's
 // mean ΔE00 by 0.75 or more. Linear: least squares of each channel on x and y gives the direction,
 // snapped to a multiple of 45° within 4°. Radial: the centre is searched on a grid. Either way the
 // colours along it are binned and fitted with two stops, or three where a middle stop earns its
@@ -19,7 +19,7 @@ export interface GradientFit {
   error: number
 }
 
-/** An inner pixel of a part: its centre in the fitting picture and its colour. */
+/** An inner pixel of a patch: its centre in the fitting picture and its colour. */
 export interface InnerPixel {
   x: number
   y: number

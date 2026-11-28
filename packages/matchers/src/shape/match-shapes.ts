@@ -13,26 +13,21 @@
 
 import type { CanvasKit } from '@dazbee/canvaskit'
 import type { Pixels } from '@dazbee/renderer'
-import {
-  type LooksSameScores,
-  type MatchAnswer,
-  type MatchJob,
-  type MatchKit,
-  type Piece,
-  readImageHeader,
-  type Rgb,
-} from '@dazbee/schema'
+import { type MatchAnswer, type MatchJob, type MatchKit, type Piece, readImageHeader, type Rgb } from '@dazbee/schema'
 
-import { farShare, LOOKS_SAME, shrunk } from '../looks-same/rule.ts'
+import { LOOKS_SAME, shrunk } from '../looks-same/rule.ts'
 import { layersAnswer, pictureAnswer } from './answer.ts'
 import { snapToBrand } from './brand-snap.ts'
-import { type Detail, detailOf, judgedScale } from './detail-check.ts'
-import { drawGraphics, type ShapeLayer } from './draw-layers.ts'
-import { gradientOf, graphicsOf, regularOf } from './graphics.ts'
+import type { Detail } from './detail-check.ts'
+import { drawGraphics } from './draw-layers.ts'
+import { graphicsOf, regularOf } from './graphics.ts'
+import { judge, type Judged, type Seen, withoutUnseen } from './judging.ts'
 import { shrinkFloats, toFloatPicture } from './parts/float-picture.ts'
 import { piecePixels } from './parts/piece-pixels.ts'
+import { gradientOf } from './patch-gradient.ts'
 import { splitPatches } from './patches.ts'
 import { shadowOf } from './shadow.ts'
+import { busyShare, SHRINK_LOSS, shrunkWithLoss } from './shrink-loss.ts'
 import { stack, type Stacked } from './stacking.ts'
 
 /** What the frame shows around a piece, which decides what of the piece a person sees. */
@@ -43,25 +38,7 @@ export interface Around {
   behind?: Rgb
 }
 
-/** What a judged set of graphics scored. */
-interface Judged {
-  same: boolean
-  scores: LooksSameScores
-  detail: Detail
-}
-
-/** A piece as its rebuilds are judged: at its own size and at the rule's, with what other layers hide of it at that size. */
-interface Seen {
-  ck: CanvasKit
-  piece: Pixels
-  /** The piece at most 512 px on its long side; itself when it is no larger. */
-  small: Pixels
-  /** Per pixel of `small`, 1 where other layers cover the piece. */
-  hidden: Uint8Array | undefined
-  around: Around
-}
-
-/** The settings of the match and its judging. */
+/** The settings of the match. */
 export const SHAPES = {
   /** The most pixels a piece is cut into patches at: a larger piece is shrunk to them. */
   workPixels: 512 * 512,
@@ -78,16 +55,6 @@ export const SHAPES = {
   onShapes: 0.3,
   /** A patch whose outline encloses less than this many pixels is no graphic. */
   leastOutline: 2,
-  /** A graphic drawing under this share of the piece's pixels is small enough to go when nobody would miss it. */
-  unseenShare: 0.005,
-  /**
-   * The rebuild may differ from the piece in a blob of at most this many pixels of the piece, and in a blob of
-   * halo of at most `mostHalo`. In a piece judged enlarged the blob is counted in the enlarged pixels and may
-   * hold this many times the enlargement to the power `enlargedBlob`: fewer of the piece's own pixels.
-   */
-  mostBlob: 12,
-  mostHalo: 20,
-  enlargedBlob: 1.5,
 } as const
 
 /**
@@ -96,9 +63,6 @@ export const SHAPES = {
  */
 export const SHAPE_STEPS = ['patches', 'graphics', 'judging'] as const
 export type ShapeStep = (typeof SHAPE_STEPS)[number]
-
-/** The detail check of a rebuild that wasn't looked at closely. */
-const NO_DETAIL: Detail = { seen: 0, blob: 0, blobs: 0, width: 1, height: 1, different: new Uint8Array(1), halo: 0 }
 
 /** Rebuilds a job's shape piece as graphics that look the same, or says why it stays a picture. */
 export function matchShapes(ck: CanvasKit, job: MatchJob, piece: Piece, step?: (step: ShapeStep) => void): MatchAnswer {
@@ -116,7 +80,8 @@ export function matchShapes(ck: CanvasKit, job: MatchJob, piece: Piece, step?: (
 
 /**
  * Rebuilds a piece's pixels as graphics that look the same in the frame `around` it, or says why they stay a
- * picture, telling `step` as each step starts.
+ * picture, telling `step` as each step starts. The judge keeps what it reads of a piece for the piece object: a
+ * caller that matches another picture gives another object, never the same one with its pixels changed in place.
  */
 export function matchShapesOf(
   ck: CanvasKit,
@@ -126,29 +91,22 @@ export function matchShapesOf(
   step?: (step: ShapeStep) => void,
 ): MatchAnswer {
   step?.('patches')
-  // The piece at the size it is judged at by the rule, which is the size it is cut into patches at too.
-  const scale = Math.min(1, LOOKS_SAME.maxSide / Math.max(piece.width, piece.height))
-  const small =
-    scale < 1
-      ? shrunk(piece, Math.max(1, Math.round(piece.width * scale)), Math.max(1, Math.round(piece.height * scale)))
-      : piece
-  // It is cut into patches at no more than 512 × 512 pixels, which leaves a long piece more of its long side.
-  const cut = Math.min(1, Math.sqrt(SHAPES.workPixels / (piece.width * piece.height)))
-  const worked = toFloatPicture(
-    cut >= 1
-      ? piece
-      : cut <= scale
-        ? small
-        : shrunk(piece, Math.max(1, Math.round(piece.width * cut)), Math.max(1, Math.round(piece.height * cut))),
-  )
-  const hidden = hiddenAt(around.hidden, piece, worked)
-  const seen: Seen = { ck, piece, small, hidden: hiddenAt(around.hidden, piece, small), around }
-  const split = splitPatches(worked, hidden)
+  const { small, cutAt, spread } = sized(piece)
+  const hidden = hiddenAt(around.hidden, piece, cutAt)
+  // A pattern the shrink turned into one flat tone is no flat drawing, whatever the shrunk picture shows.
+  if (spread && busyShare(cutAt, spread, hidden) > SHRINK_LOSS.mostBusy) return pictureAnswer('tooManyParts')
+  const worked = toFloatPicture(cutAt)
+  const seen: Seen = { ck, piece, small, hidden: hiddenAt(around.hidden, piece, small), behind: around.behind }
+  const split = splitPatches(worked, hidden, {
+    most: { patches: SHAPES.mostPatches, outline: SHAPES.leastOutline },
+    ...(around.behind ? { behind: around.behind } : {}),
+  })
   if (!split) return pictureAnswer('tooManyParts')
   if (split.unexplained > SHAPES.mostUnexplained) return pictureAnswer('photo')
+  if (split.tooMany) return pictureAnswer('tooManyParts')
   const patches = split.patches.filter((r) => r.outline >= SHAPES.leastOutline)
-  if (patches.length === 0) return pictureAnswer('looksDifferent')
-  if (patches.length > SHAPES.mostPatches) return pictureAnswer('tooManyParts')
+  // A piece with nothing to draw that is seen has no rebuild that looks the same.
+  if (!patches.some((r) => r.shown + r.beside > 0)) return pictureAnswer('looksDifferent')
   step?.('graphics')
   const stacked = stack(patches, split.patchOf, split.width, split.height)
   for (const s of stacked) s.gradient = gradientOf(s.patch, worked, split.patchOf, hidden)
@@ -201,6 +159,26 @@ export function matchShapesOf(
 }
 
 /**
+ * A piece at the size the rule judges it at, at most 512 px a side, and at the size it is cut into patches at, no
+ * more than 512 × 512 pixels, which leaves a long piece more of its long side; with what the shrink to that size
+ * loses, when the piece is shrunk to be cut.
+ */
+function sized(piece: Pixels): { small: Pixels; cutAt: Pixels; spread: Float32Array | null } {
+  const at = (scale: number) =>
+    [Math.max(1, Math.round(piece.width * scale)), Math.max(1, Math.round(piece.height * scale))] as const
+  const scale = Math.min(1, LOOKS_SAME.maxSide / Math.max(piece.width, piece.height))
+  const cut = Math.min(1, Math.sqrt(SHAPES.workPixels / (piece.width * piece.height)))
+  if (cut >= 1) return { small: scale < 1 ? shrunk(piece, ...at(scale)) : piece, cutAt: piece, spread: null }
+  // A piece no longer than the rule's size is cut at that size.
+  if (cut <= scale) {
+    const lossy = shrunkWithLoss(piece, ...at(scale))
+    return { small: lossy.shrunk, cutAt: lossy.shrunk, spread: lossy.spread }
+  }
+  const lossy = shrunkWithLoss(piece, ...at(cut))
+  return { small: scale < 1 ? shrunk(piece, ...at(scale)) : piece, cutAt: lossy.shrunk, spread: lossy.spread }
+}
+
+/**
  * What a job says is hidden of the pixels `piece` read under a piece's rect: the job's one bit a pixel of its
  * picture, as one byte a pixel of the piece. None when the job's bits are not the picture's size.
  */
@@ -235,74 +213,6 @@ function hiddenAt(
         hidden[from * piece.width + Math.min(piece.width - 1, Math.floor(((x + 0.5) * piece.width) / small.width))] ?? 0
   }
   return out
-}
-
-/**
- * Judges graphics against their piece: the looks-the-same rule's far share, then no blob of difference in the
- * detail check. The graphics are drawn at the size they are judged at, never larger.
- */
-function judge(seen: Seen, layers: readonly ShapeLayer[], variables?: Parameters<typeof drawGraphics>[5]): Judged {
-  const { ck, piece, small, hidden, around } = seen
-  const draw = (scale: number) => drawGraphics(ck, layers, piece.width, piece.height, scale, variables)
-  let drawn = draw(small.width / piece.width)
-  // A drawing that comes out another size than the rule's is made at the piece's own and shrunk.
-  if (drawn.width !== small.width || drawn.height !== small.height) {
-    drawn = shrunk(draw(1), small.width, small.height)
-  }
-  // What other layers hide is not seen: there the graphics are taken to draw what the piece shows.
-  if (hidden) {
-    const pixels = new Uint8Array(drawn.pixels)
-    for (let i = 0; i < hidden.length; i++) if (hidden[i]) pixels.set(small.pixels.subarray(i * 4, i * 4 + 4), i * 4)
-    drawn = { width: small.width, height: small.height, pixels }
-  }
-  const far = farShare(small, drawn)
-  const scores = { far }
-  // A rebuild the rule turns down needs no closer look.
-  if (far > LOOKS_SAME.shape.far) return { same: false, scores, detail: NO_DETAIL }
-  let detail: Detail
-  if (judgedScale(piece) <= 1) detail = detailOf(small, drawn, around.behind)
-  else {
-    // A small piece is enlarged, and its graphics drawn again at that size, sharp; where it is hidden the piece
-    // takes what they draw.
-    let shown = piece
-    if (hidden) {
-      const pixels = new Uint8Array(piece.pixels)
-      for (let i = 0; i < hidden.length; i++) if (hidden[i]) pixels.set(drawn.pixels.subarray(i * 4, i * 4 + 4), i * 4)
-      shown = { width: piece.width, height: piece.height, pixels }
-    }
-    detail = detailOf(shown, draw, around.behind)
-  }
-  // An enlarged piece is allowed a smaller blob of its own pixels: enlarging shows what was too small to see.
-  const size = detail.width / piece.width
-  const blob = SHAPES.mostBlob * size ** (size > 1 ? SHAPES.enlargedBlob : 2)
-  return { same: detail.blob <= blob && detail.halo <= SHAPES.mostHalo * size ** 2, scores, detail }
-}
-
-/**
- * The graphics without the small ones nobody would miss, judged again, or null when every small one is seen.
- * Graphics drawing under a share of the piece's pixels are small; they go all at once when the piece then still
- * looks the same, and else by halves, each half that can go.
- */
-function withoutUnseen(
-  seen: Seen,
-  layers: readonly ShapeLayer[],
-  pixels: readonly number[],
-  variables: Parameters<typeof drawGraphics>[5],
-): { layers: ShapeLayer[]; judged: Judged } | null {
-  const all = pixels.reduce((sum, count) => sum + count, 0)
-  const small = layers.map((_, i) => i).filter((i) => (pixels[i] ?? 0) < SHAPES.unseenShare * all)
-  if (small.length === 0 || small.length === layers.length) return null
-  const without = (gone: readonly number[]) => {
-    const kept = layers.filter((_, i) => !gone.includes(i))
-    const judged = judge(seen, kept, variables)
-    return judged.same ? { layers: kept, judged } : null
-  }
-  const whole = without(small)
-  if (whole || small.length === 1) return whole
-  const half = small.length >> 1
-  const first = without(small.slice(0, half))
-  const second = without(small.slice(half))
-  return first && second ? (without(small) ?? first) : (first ?? second)
 }
 
 /**

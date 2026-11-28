@@ -1,7 +1,7 @@
-// Tracing: a part's coverage as a path of cubic Béziers, holes included (evenodd). Marching squares
-// at half coverage give sub-pixel outlines, smoothed once; corners are where an outline turns
-// sharply; between corners, cubic Béziers are fitted by least squares on chord-length parameters,
-// re-parameterised by Newton steps, and split at the worst point until they keep within a tolerance.
+// Tracing: closed outlines as one path of cubic Béziers, holes included (evenodd). The outlines it
+// is given are smoothed once; corners are where an outline turns sharply; between corners, cubic
+// Béziers are fitted by least squares on chord-length parameters, re-parameterised by Newton steps,
+// and split at the worst point until they keep within a tolerance.
 
 /** A point: x, y. */
 export type Point = [number, number]

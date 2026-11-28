@@ -46,6 +46,9 @@ FRONT = (
     ("disc", "cutout", 3, None),
 )
 LAYERS = 4
+# The tilted sticker's angle, and how many letters each of its lines has.
+STICKER_ANGLE = -14.0
+STICKER_LINES = {"first": 12, "second": 14, "third": 10}
 
 
 @pytest.fixture(scope="module")
@@ -130,6 +133,47 @@ def test_the_stray_patch_outside_every_box_is_in_no_piece(made):
     for item in made["items"]:
         if item["part"] != "backdrop":
             assert solid_pixels(item, STRAY) == 0, item["part"]
+
+
+def test_each_line_of_a_tilted_sticker_keeps_its_own_letters():
+    sticker = draw_sticker()
+    made = make_pieces(sticker.picture, sticker.parts, sticker.layers)
+    for line in STICKER_LINES:
+        # Each line's box, upright, holds letters of the lines next to it.
+        assert near(place(piece_of(made, line)), bounds(sticker.masks[line] > 0.5), 3), line
+        assert piece_of(made, line)["turned"]["angle"] == pytest.approx(STICKER_ANGLE, abs=1.5)
+
+
+def test_two_tilted_texts_side_by_side_are_not_taken_for_one_line():
+    sticker = draw_sticker(side_by_side=True)
+    made = make_pieces(sticker.picture, sticker.parts, sticker.layers)
+    for text in ("left", "right"):
+        assert near(place(piece_of(made, text)), bounds(sticker.masks[text] > 0.5), 3), text
+
+
+def test_small_print_far_from_a_text_is_in_no_text_piece():
+    drawn = draw_small_print()
+    made = make_pieces(drawn.picture, drawn.parts, drawn.layers)
+    assert near(place(piece_of(made, "headline")), bounds(drawn.masks["headline"] > 0.5), 3)
+    (loose,) = [item for item in made["items"] if item["kind"] == "other"]
+    assert (loose["part"], loose["layer"]) == (None, 1)
+    assert near(place(loose), bounds(drawn.masks["print"] > 0.5), 3)
+
+
+def test_the_tip_of_a_descender_stays_with_its_letter():
+    drawn = draw_descender()
+    made = make_pieces(drawn.picture, drawn.parts, drawn.layers)
+    # The tip lies below the headline's box and in the padding around the subline's.
+    assert near(place(piece_of(made, "headline")), bounds(drawn.masks["headline"] > 0.5), 3)
+    assert near(place(piece_of(made, "subline")), bounds(drawn.masks["subline"] > 0.5), 3)
+
+
+def test_a_piece_of_no_part_that_is_nothing_but_specks_shows_nothing():
+    speck = np.zeros((9, 9, 4), np.uint8)
+    speck[4, 4] = (20, 20, 20, 40)
+    assert pieces._shown([10, 10, 9, 9], speck, False) is None
+    (x, y), shown = pieces._shown([10, 10, 9, 9], speck, True)
+    assert (x, y, shown.shape[:2]) == (14, 14, (1, 1))
 
 
 def test_a_piece_turned_45_degrees_in_a_tall_picture_keeps_its_angle_within_the_contract():
@@ -423,6 +467,110 @@ def draw_diamond() -> SimpleNamespace:
         bounds=bounds(diamond > 0.5),
         side=reach * 2**0.5,
     )
+
+
+def draw_sticker(side_by_side: bool = False) -> SimpleNamespace:
+    """A picture of a tilted dark sticker with light text on it, each text a planned part with its upright box, and
+    its three split layers: its picture, parts and layers, and each part's mask as it was drawn. The text is three
+    lines under each other, whose boxes hold letters of the lines next to them; with `side_by_side`, two texts on
+    one steeper line, close enough for their boxes to overlap."""
+    centre = (256, 256)
+    if side_by_side:
+        angle, rows = -30.0, {"left": (-51, 0, 5, 12, 30, 8), "right": (47, 0, 6, 9, 30, 6)}
+    else:
+        angle = STICKER_ANGLE
+        rows = {
+            line: (0, (index - 1) * 34, count, 9, 22, 6) for index, (line, count) in enumerate(STICKER_LINES.items())
+        }
+    turn = np.deg2rad(angle)
+
+    def letters(big: np.ndarray, along: float, across: float, count: int, width: int, height: int, gap: int) -> None:
+        """A row of bars turned by the sticker's angle, its middle `along` and `across` from the sticker's."""
+        first = along - (count * width + (count - 1) * gap) / 2 + width / 2
+        for index in range(count):
+            at = first + index * (width + gap)
+            x = centre[0] + at * np.cos(turn) - across * np.sin(turn)
+            y = centre[1] + at * np.sin(turn) + across * np.cos(turn)
+            corners = cv2.boxPoints(((2 * x, 2 * y), (2 * width, 2 * height), angle))
+            cv2.fillPoly(big, [np.round(corners).astype(np.int32)], 255)
+
+    def sticker(big: np.ndarray) -> None:
+        corners = cv2.boxPoints(((2 * centre[0], 2 * centre[1]), (2 * 300, 2 * 140), angle))
+        cv2.fillPoly(big, [np.round(corners).astype(np.int32)], 255)
+
+    masks = {text: mask(lambda big, row=row: letters(big, *row)) for text, row in rows.items()}
+    masks["sticker"] = mask(sticker)
+    light, dark = np.array([1.0, 0.95, 0.3], np.float32), np.array([0.08, 0.08, 0.1], np.float32)
+    backdrop = np.full((SIZE, SIZE, 3), (0.95, 0.85, 0.2), np.float32)
+    text = np.max([masks[name] for name in rows], axis=0)
+    picture = dark * masks["sticker"][..., None] + backdrop * (1 - masks["sticker"][..., None])
+    picture = light * text[..., None] + picture * (1 - text[..., None])
+    layers = [
+        blurred(np.concatenate([np.broadcast_to(colour, (SIZE, SIZE, 3)), drawn[..., None]], axis=2))
+        for colour, drawn in ((light, text), (dark, masks["sticker"]))
+    ]
+    layers.append(np.concatenate([backdrop, np.ones((SIZE, SIZE, 1), np.float32)], axis=2))
+    parts = [{"id": name, "kind": "text", "shadow": "none", "layer": 1, "box": grid_box(masks[name])} for name in rows]
+    parts.append({"id": "sticker", "kind": "shape", "shadow": "none", "layer": 2, "box": grid_box(masks["sticker"])})
+    parts.append(
+        {"id": "backdrop", "kind": "background", "shadow": "none", "layer": 3, "box": grid_box(np.ones((SIZE, SIZE)))}
+    )
+    return SimpleNamespace(picture=as_picture(picture), parts=parts, layers=as_saved(layers), masks=masks)
+
+
+def draw_small_print() -> SimpleNamespace:
+    """A picture of a headline and, far from it, small print that is no planned part (the print on a bottle in the
+    photo), both drawn in the text's layer by the split: its picture, parts and layers, and the masks of the
+    headline and of the print."""
+    masks = {
+        "headline": mask(lambda big: bars(big, 40, 60, 9, 14, 44, 10)),
+        "print": mask(lambda big: bars(big, 380, 400, 10, 2, 7, 3)),
+    }
+    colour = np.array([0.1, 0.1, 0.15], np.float32)
+    backdrop = np.full((SIZE, SIZE, 3), (0.93, 0.8, 0.6), np.float32)
+    text = np.maximum(masks["headline"], masks["print"])
+    picture = colour * text[..., None] + backdrop * (1 - text[..., None])
+    layers = [
+        blurred(np.concatenate([np.broadcast_to(colour, (SIZE, SIZE, 3)), text[..., None]], axis=2)),
+        np.concatenate([backdrop, np.ones((SIZE, SIZE, 1), np.float32)], axis=2),
+    ]
+    parts = [
+        {"id": "headline", "kind": "text", "shadow": "none", "layer": 1, "box": grid_box(masks["headline"])},
+        {"id": "photo", "kind": "photo", "shadow": "none", "layer": 2, "box": grid_box(np.ones((SIZE, SIZE)))},
+    ]
+    return SimpleNamespace(picture=as_picture(picture), parts=parts, layers=as_saved(layers), masks=masks)
+
+
+def draw_descender() -> SimpleNamespace:
+    """A picture, 1024 pixels a side, of a headline over a subline. One letter of the headline has a descender: a
+    thin stem with a thicker tip, which ends just above the subline. The headline's box leaves the descender out, as
+    a plan's box can. Its picture, parts and layers, and the masks of the headline, descender included, and of the
+    subline."""
+    side = 1024
+    letters = np.zeros((side, side), np.float32)
+    for left in range(100, 400, 50):
+        letters[200:300, left : left + 30] = 1
+    headline = letters.copy()
+    headline[300:318, 164:167] = 1
+    headline[318:328, 158:172] = 1
+    subline = np.zeros((side, side), np.float32)
+    for left in range(100, 320, 22):
+        subline[332:362, left : left + 12] = 1
+    masks = {"headline": headline, "subline": subline}
+    colour = np.array([0.1, 0.1, 0.15], np.float32)
+    backdrop = np.full((side, side, 3), (0.93, 0.9, 0.8), np.float32)
+    text = np.maximum(headline, subline)
+    picture = colour * text[..., None] + backdrop * (1 - text[..., None])
+    layers = [
+        blurred(np.concatenate([np.broadcast_to(colour, (side, side, 3)), text[..., None]], axis=2)),
+        np.concatenate([backdrop, np.ones((side, side, 1), np.float32)], axis=2),
+    ]
+    parts = [
+        {"id": "headline", "kind": "text", "shadow": "none", "layer": 1, "box": grid_box(letters)},
+        {"id": "subline", "kind": "text", "shadow": "none", "layer": 1, "box": grid_box(subline)},
+        {"id": "backdrop", "kind": "background", "shadow": "none", "layer": 2, "box": grid_box(np.ones((side, side)))},
+    ]
+    return SimpleNamespace(picture=as_picture(picture), parts=parts, layers=as_saved(layers), masks=masks)
 
 
 def draw_thin() -> SimpleNamespace:

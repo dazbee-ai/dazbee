@@ -69,7 +69,7 @@ def make_pieces(picture: Image.Image, parts: list[dict], layers: list[np.ndarray
 
     items, shown = [], []
     for piece in solved:
-        cropped = _shown(piece["place"], piece["pixels"])
+        cropped = _shown(piece["place"], piece["pixels"], piece["kind"] != "other")
         if cropped is None:
             continue
         (x, y), pixels = cropped
@@ -115,20 +115,22 @@ def _in_pixels(part: dict, width: int, height: int) -> dict:
     }
 
 
-def _shown(place: list[int], pixels: np.ndarray) -> tuple[tuple[int, int], np.ndarray] | None:
+def _shown(place: list[int], pixels: np.ndarray, planned: bool) -> tuple[tuple[int, int], np.ndarray] | None:
     """A piece cropped to the pixels it shows, its specks cleared first: its new top-left corner and its pixels,
-    or None when it shows nothing. A piece that is nothing but specks keeps them.
+    or None when it shows nothing. A piece that is nothing but specks keeps them when it is a planned part's, and
+    shows nothing when it is a piece of no part.
 
     place: the piece's [x, y, width, height] in the picture's pixels. pixels: the place's pixels as RGBA bytes.
+    planned: whether the piece is a planned part's.
     """
     seen = pixels[..., 3] >= SEEN
     groups, count = ndimage.label(seen, structure=np.ones((3, 3)))
-    if count > 1:
+    if count > 1 or not planned:
         index = np.arange(1, count + 1)
         sizes = ndimage.sum(seen, groups, index)
         strongest = ndimage.maximum(pixels[..., 3], groups, index)
         specks = np.isin(groups, index[(sizes <= SPECK_PIXELS) & (strongest < SPECK_ALPHA)])
-        if specks.any() and not specks[seen].all():
+        if specks.any() and not (planned and specks[seen].all()):
             pixels = pixels.copy()
             pixels[specks, 3] = 0
             seen &= ~specks

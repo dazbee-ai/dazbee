@@ -48,23 +48,23 @@ export function shadowOf(piece: FloatPicture, made: FloatPicture, scale: number)
   let cy = 0
   let covered = 0
   for (let i = 0; i < n; i++) {
-    const alpha = piece.data[i * 4 + 3]!
-    cover[i] = made.data[i * 4 + 3]!
+    const alpha = piece.data[i * 4 + 3] ?? 0
+    cover[i] = made.data[i * 4 + 3] ?? 0
     total += alpha
-    covered += cover[i]!
-    cx += (i % width) * cover[i]!
-    cy += Math.floor(i / width) * cover[i]!
-    const uncovered = alpha - cover[i]!
+    covered += cover[i] ?? 0
+    cx += (i % width) * (cover[i] ?? 0)
+    cy += Math.floor(i / width) * (cover[i] ?? 0)
+    const uncovered = alpha - (cover[i] ?? 0)
     if (uncovered <= SHADOW.uncovered) continue
     fringe[i] = uncovered
     left += uncovered
     weight += uncovered
-    for (let c = 0; c < 3; c++) rgb[c] = rgb[c]! + piece.data[i * 4 + c]! * uncovered
+    for (let c = 0; c < 3; c++) rgb[c] = (rgb[c] ?? 0) + (piece.data[i * 4 + c] ?? 0) * uncovered
     fx += (i % width) * uncovered
     fy += Math.floor(i / width) * uncovered
   }
   if (weight === 0 || covered === 0 || left < total * SHADOW.smallest) return null
-  for (let c = 0; c < 3; c++) rgb[c] = rgb[c]! / weight
+  for (let c = 0; c < 3; c++) rgb[c] = (rgb[c] ?? 0) / weight
   // What a shadow leaves of the fringe: the fringe less the shadow, where the graphics don't cover it.
   // Moving a blurred mask gives what blurring the moved mask does, so the coverage is blurred once for each σ, with
   // room around it for the blur that a move brings into the piece.
@@ -85,7 +85,7 @@ export function shadowOf(piece: FloatPicture, made: FloatPicture, scale: number)
     }
     shifted(blurred, wide, room, moved, width, height, t.x, t.y)
     let error = 0
-    for (let i = 0; i < n; i++) error += Math.abs(fringe[i]! - t.alpha * moved[i]! * (1 - cover[i]!))
+    for (let i = 0; i < n; i++) error += Math.abs((fringe[i] ?? 0) - t.alpha * (moved[i] ?? 0) * (1 - (cover[i] ?? 0)))
     return error
   }
   // It starts half way from the graphics' centre to the fringe's.
@@ -151,10 +151,10 @@ function shifted(
     for (let x = 0; x < width; x++) {
       const at = row + x
       to[y * width + x] =
-        from[at]! * (1 - tx) * (1 - ty) +
-        from[at - 1]! * tx * (1 - ty) +
-        from[at - wide]! * (1 - tx) * ty +
-        from[at - wide - 1]! * tx * ty
+        (from[at] ?? 0) * (1 - tx) * (1 - ty) +
+        (from[at - 1] ?? 0) * tx * (1 - ty) +
+        (from[at - wide] ?? 0) * (1 - tx) * ty +
+        (from[at - wide - 1] ?? 0) * tx * ty
     }
   }
 }
@@ -165,19 +165,19 @@ function blur(from: Float32Array, along: Float32Array, to: Float32Array, width: 
   const taps = new Float32Array(2 * radius + 1)
   let sum = 0
   for (let k = -radius; k <= radius; k++) sum += taps[k + radius] = Math.exp(-(k * k) / (2 * sigma * sigma))
-  for (let k = 0; k < taps.length; k++) taps[k] = taps[k]! / sum
+  for (let k = 0; k < taps.length; k++) taps[k] = (taps[k] ?? 0) / sum
   for (let y = 0; y < height; y++)
     for (let x = 0; x < width; x++) {
       let v = 0
       for (let k = Math.max(-radius, -x); k <= Math.min(radius, width - 1 - x); k++)
-        v += taps[k + radius]! * from[y * width + x + k]!
+        v += (taps[k + radius] ?? 0) * (from[y * width + x + k] ?? 0)
       along[y * width + x] = v
     }
   for (let y = 0; y < height; y++)
     for (let x = 0; x < width; x++) {
       let v = 0
       for (let k = Math.max(-radius, -y); k <= Math.min(radius, height - 1 - y); k++)
-        v += taps[k + radius]! * along[(y + k) * width + x]!
+        v += (taps[k + radius] ?? 0) * (along[(y + k) * width + x] ?? 0)
       to[y * width + x] = v
     }
 }

@@ -5,10 +5,8 @@ import { type MatchAnswer, MatchJob, type MatchKit, type Paint, type UnplacedLay
 
 import { looksSame } from '../looks-same/rule.ts'
 import { drawGraphics, type ShapeLayer } from './draw-layers.ts'
-import { type Around, gradientOf, matchShapes, matchShapesOf, SHAPE_STEPS, type ShapeStep } from './match-shapes.ts'
+import { type Around, matchShapes, matchShapesOf, SHAPE_STEPS, type ShapeStep } from './match-shapes.ts'
 import { hexRgb } from './parts/colour.ts'
-import { toFloatPicture } from './parts/float-picture.ts'
-import { splitPatches } from './patches.ts'
 import { ellipse, graphic, hiding, noise, pngBase64, rectangle, shadowed } from './test-pieces.ts'
 
 type Graphic = Extract<UnplacedLayer, { type: 'graphic' }>
@@ -527,37 +525,5 @@ describe('matchShapesOf', () => {
     const { answer } = matched([panel])
     expect(answer.scores).toEqual({ far: 0 })
     expect(matched(glass).answer.scores?.far).toBeLessThan(0.015)
-  })
-})
-
-describe('gradientOf', () => {
-  /** The one patch of a rectangle with this fill, with the picture it was cut from. */
-  const patchOf = (fill: Paint) => {
-    const picture = toFloatPicture(
-      drawGraphics(
-        ck,
-        [graphic({ kind: 'rect', cornerRadius: 0 }, { x: 10, y: 10, width: 220, height: 100 }, { fill })],
-        240,
-        120,
-      ),
-    )
-    const split = splitPatches(picture)
-    const [patch] = split?.patches ?? []
-    if (!split || !patch) throw new Error('no patch')
-    return { picture, split, patch }
-  }
-
-  it('reads a patch that shades from one colour to another as a linear gradient between them', () => {
-    const { picture, split, patch } = patchOf(LINEAR)
-    const gradient = gradientOf(patch, picture, split.patchOf)
-    expect(gradient?.type).toBe('linear')
-    // It runs across the patch, in the picture's pixels.
-    expect((gradient?.to[0] ?? NaN) - (gradient?.from[0] ?? NaN)).toBeGreaterThan(180)
-    expect(Math.abs((gradient?.to[1] ?? NaN) - (gradient?.from[1] ?? NaN))).toBeLessThan(5)
-  })
-
-  it('reads no gradient in a patch of one colour', () => {
-    const { picture, split, patch } = patchOf({ type: 'solid', color: BLUE })
-    expect(gradientOf(patch, picture, split.patchOf)).toBeNull()
   })
 })

@@ -35,6 +35,14 @@ export interface Detail {
   halo: number
 }
 
+/** A picture as the check reads it: its RGB, and its Lab where it has been asked for. */
+interface Side {
+  rgb: Float32Array
+  lab: Float32Array
+  width: number
+  height: number
+}
+
 export const DETAIL = {
   /**
    * The long side both pictures are judged at: shrunk to the most, enlarged to the least, at most `mostEnlarged`
@@ -91,8 +99,9 @@ export function detailOf(
   let luma = 0
   let weight = 0
   for (let i = 0; i < n; i++) {
-    const alpha = a.data[i * 4 + 3]!
-    luma += alpha * (0.2126 * a.data[i * 4]! + 0.7152 * a.data[i * 4 + 1]! + 0.0722 * a.data[i * 4 + 2]!)
+    const alpha = a.data[i * 4 + 3] ?? 0
+    luma +=
+      alpha * (0.2126 * (a.data[i * 4] ?? 0) + 0.7152 * (a.data[i * 4 + 1] ?? 0) + 0.0722 * (a.data[i * 4 + 2] ?? 0))
     weight += alpha
   }
   const grey = weight > 0 && luma / weight > 128 ? 48 : 208
@@ -109,12 +118,12 @@ export function detailOf(
   for (let y = 0; y < height; y++)
     for (let x = 0; x < width; x++) {
       const i = y * width + x
-      if (a.data[i * 4 + 3]! <= 0.5 && b.data[i * 4 + 3]! <= 0.5) continue
+      if ((a.data[i * 4 + 3] ?? 0) <= 0.5 && (b.data[i * 4 + 3] ?? 0) <= 0.5) continue
       foreground++
       if (
-        Math.abs(seenA[i * 3]! - seenB[i * 3]!) <= DETAIL.near &&
-        Math.abs(seenA[i * 3 + 1]! - seenB[i * 3 + 1]!) <= DETAIL.near &&
-        Math.abs(seenA[i * 3 + 2]! - seenB[i * 3 + 2]!) <= DETAIL.near
+        Math.abs((seenA[i * 3] ?? 0) - (seenB[i * 3] ?? 0)) <= DETAIL.near &&
+        Math.abs((seenA[i * 3 + 1] ?? 0) - (seenB[i * 3 + 1] ?? 0)) <= DETAIL.near &&
+        Math.abs((seenA[i * 3 + 2] ?? 0) - (seenB[i * 3 + 2] ?? 0)) <= DETAIL.near
       )
         continue
       if (explained(sideA, sideB, x, y, memo) && explained(sideB, sideA, x, y, memo)) continue
@@ -126,8 +135,8 @@ export function detailOf(
   const flat = new Float32Array(under)
   const halo = new Uint8Array(n)
   for (let i = 0; i < n; i++) {
-    const alphaA = a.data[i * 4 + 3]!
-    const alphaB = b.data[i * 4 + 3]!
+    const alphaA = a.data[i * 4 + 3] ?? 0
+    const alphaB = b.data[i * 4 + 3] ?? 0
     const inkOfA = alphaB < DETAIL.clear && !coverB[i] && alphaA >= DETAIL.clear
     if (!inkOfA && !(alphaA < DETAIL.clear && !coverA[i] && alphaB >= DETAIL.clear)) continue
     const ink = behind
@@ -155,7 +164,7 @@ function coverNear({ width, height, data }: FloatPicture, reach: number): Uint8A
     for (let x = 0; x < width; x++) {
       for (let d = -reach; d <= reach; d++) {
         const xx = x + d
-        if (xx >= 0 && xx < width && data[(y * width + xx) * 4 + 3]! >= 0.5) {
+        if (xx >= 0 && xx < width && (data[(y * width + xx) * 4 + 3] ?? 0) >= 0.5) {
           along[y * width + x] = 1
           break
         }
@@ -174,18 +183,10 @@ function coverNear({ width, height, data }: FloatPicture, reach: number): Uint8A
   return out
 }
 
-/** A picture as the check reads it: its RGB, and its Lab where it has been asked for. */
-interface Side {
-  rgb: Float32Array
-  lab: Float32Array
-  width: number
-  height: number
-}
-
 /** Where pixel i of a side is in its Lab, worked out once. */
 function labOf(side: Side, i: number): number {
-  if (Number.isNaN(side.lab[i * 3]!)) {
-    side.lab.set(srgbToLab(side.rgb[i * 3]!, side.rgb[i * 3 + 1]!, side.rgb[i * 3 + 2]!), i * 3)
+  if (Number.isNaN(side.lab[i * 3] ?? 0)) {
+    side.lab.set(srgbToLab(side.rgb[i * 3] ?? 0, side.rgb[i * 3 + 1] ?? 0, side.rgb[i * 3 + 2] ?? 0), i * 3)
   }
   return i * 3
 }
@@ -207,9 +208,9 @@ function explained(from: Side, to: Side, x: number, y: number, memo: Map<number,
       if (pixelDeltaE(one, to.rgb.subarray(j * 3, j * 3 + 3), 0, memo) <= DETAIL.farDeltaE) return true
     }
   const p = labOf(from, i)
-  const pl = from.lab[p]!
-  const pa = from.lab[p + 1]!
-  const pb = from.lab[p + 2]!
+  const pl = from.lab[p] ?? 0
+  const pa = from.lab[p + 1] ?? 0
+  const pb = from.lab[p + 2] ?? 0
   const around: number[] = []
   for (let dy = -2; dy <= 2; dy++)
     for (let dx = -2; dx <= 2; dx++) {
@@ -221,15 +222,15 @@ function explained(from: Side, to: Side, x: number, y: number, memo: Map<number,
   const lab = to.lab
   const within = DETAIL.mix ** 2
   for (let s = 0; s < around.length; s++) {
-    const a = around[s]!
-    const al = lab[a]!
-    const aa = lab[a + 1]!
-    const ab = lab[a + 2]!
+    const a = around[s] ?? 0
+    const al = lab[a] ?? 0
+    const aa = lab[a + 1] ?? 0
+    const ab = lab[a + 2] ?? 0
     for (let t = s + 1; t < around.length; t++) {
-      const b = around[t]!
-      const dl = lab[b]! - al
-      const da = lab[b + 1]! - aa
-      const db = lab[b + 2]! - ab
+      const b = around[t] ?? 0
+      const dl = (lab[b] ?? 0) - al
+      const da = (lab[b + 1] ?? 0) - aa
+      const db = (lab[b + 2] ?? 0) - ab
       const length = dl * dl + da * da + db * db
       // Two colours that are nearly one are no mix to lie on.
       if (length < within) continue
@@ -246,8 +247,8 @@ function sized(picture: FloatPicture, width: number, height: number): FloatPictu
   const { width: w, height: h, data: src } = picture
   const pre = new Float32Array(w * h * 4)
   for (let i = 0; i < w * h; i++) {
-    const alpha = src[i * 4 + 3]!
-    for (let c = 0; c < 3; c++) pre[i * 4 + c] = src[i * 4 + c]! * alpha
+    const alpha = src[i * 4 + 3] ?? 0
+    for (let c = 0; c < 3; c++) pre[i * 4 + c] = (src[i * 4 + c] ?? 0) * alpha
     pre[i * 4 + 3] = alpha
   }
   const cubic = (t: number) => {
@@ -262,7 +263,7 @@ function sized(picture: FloatPicture, width: number, height: number): FloatPictu
       for (let c = 0; c < 4; c++) {
         let v = 0
         for (let k = 0; k < 4; k++)
-          v += cubic(at - (first + k)) * pre[(y * w + Math.max(0, Math.min(w - 1, first + k))) * 4 + c]!
+          v += cubic(at - (first + k)) * (pre[(y * w + Math.max(0, Math.min(w - 1, first + k))) * 4 + c] ?? 0)
         along[(y * width + x) * 4 + c] = v
       }
   }
@@ -276,10 +277,10 @@ function sized(picture: FloatPicture, width: number, height: number): FloatPictu
       for (let k = 0; k < 4; k++) {
         const weight = cubic(at - (first + k))
         const from = (Math.max(0, Math.min(h - 1, first + k)) * width + x) * 4
-        for (let c = 0; c < 4; c++) out[c] = out[c]! + weight * along[from + c]!
+        for (let c = 0; c < 4; c++) out[c] = (out[c] ?? 0) + weight * (along[from + c] ?? 0)
       }
-      const alpha = Math.max(0, Math.min(1, out[3]!))
-      for (let c = 0; c < 3; c++) data[o + c] = alpha > 1e-4 ? Math.max(0, Math.min(255, out[c]! / alpha)) : 0
+      const alpha = Math.max(0, Math.min(1, out[3] ?? 0))
+      for (let c = 0; c < 3; c++) data[o + c] = alpha > 1e-4 ? Math.max(0, Math.min(255, (out[c] ?? 0) / alpha)) : 0
       data[o + 3] = alpha
     }
   }
@@ -290,8 +291,8 @@ function sized(picture: FloatPicture, width: number, height: number): FloatPictu
 function over({ width, height, data }: FloatPicture, under: readonly number[]): Float32Array {
   const rgb = new Float32Array(width * height * 3)
   for (let i = 0; i < width * height; i++) {
-    const alpha = data[i * 4 + 3]!
-    for (let c = 0; c < 3; c++) rgb[i * 3 + c] = data[i * 4 + c]! * alpha + under[c]! * (1 - alpha)
+    const alpha = data[i * 4 + 3] ?? 0
+    for (let c = 0; c < 3; c++) rgb[i * 3 + c] = (data[i * 4 + c] ?? 0) * alpha + (under[c] ?? 0) * (1 - alpha)
   }
   return rgb
 }
@@ -305,14 +306,16 @@ function softened(rgb: Float32Array, width: number, height: number): Float32Arra
       const l = y * width + Math.max(0, x - 1)
       const r = y * width + Math.min(width - 1, x + 1)
       const i = y * width + x
-      for (let c = 0; c < 3; c++) along[i * 3 + c] = (rgb[l * 3 + c]! + 2 * rgb[i * 3 + c]! + rgb[r * 3 + c]!) / 4
+      for (let c = 0; c < 3; c++)
+        along[i * 3 + c] = ((rgb[l * 3 + c] ?? 0) + 2 * (rgb[i * 3 + c] ?? 0) + (rgb[r * 3 + c] ?? 0)) / 4
     }
   for (let y = 0; y < height; y++)
     for (let x = 0; x < width; x++) {
       const u = Math.max(0, y - 1) * width + x
       const d = Math.min(height - 1, y + 1) * width + x
       const i = y * width + x
-      for (let c = 0; c < 3; c++) out[i * 3 + c] = (along[u * 3 + c]! + 2 * along[i * 3 + c]! + along[d * 3 + c]!) / 4
+      for (let c = 0; c < 3; c++)
+        out[i * 3 + c] = ((along[u * 3 + c] ?? 0) + 2 * (along[i * 3 + c] ?? 0) + (along[d * 3 + c] ?? 0)) / 4
     }
   return out
 }
@@ -325,14 +328,14 @@ function thickBlobs(mask: Uint8Array, width: number, height: number, core = 3): 
   for (let y = 0; y < height; y++)
     for (let x = width - 1; x >= 0; x--) {
       const i = y * width + x
-      run[i] = mask[i] ? Math.min(core, (x + 1 < width ? run[i + 1]! : 0) + 1) : 0
+      run[i] = mask[i] ? Math.min(core, (x + 1 < width ? (run[i + 1] ?? 0) : 0) + 1) : 0
     }
   const down = new Uint16Array(mask.length)
   for (let y = height - 1; y >= 0; y--)
     for (let x = 0; x < width; x++) {
       const i = y * width + x
-      down[i] = run[i]! >= core ? Math.min(core, (y + 1 < height ? down[i + width]! : 0) + 1) : 0
-      if (down[i]! >= core) starts[i] = 1
+      down[i] = (run[i] ?? 0) >= core ? Math.min(core, (y + 1 < height ? (down[i + width] ?? 0) : 0) + 1) : 0
+      if ((down[i] ?? 0) >= core) starts[i] = 1
     }
   const done = new Uint8Array(mask.length)
   const stack: number[] = []
@@ -345,7 +348,7 @@ function thickBlobs(mask: Uint8Array, width: number, height: number, core = 3): 
     done[s] = 1
     stack.push(s)
     while (stack.length) {
-      const i = stack.pop()!
+      const i = stack.pop() ?? 0
       size++
       if (starts[i]) thick = true
       const x = i % width

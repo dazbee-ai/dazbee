@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 
 import { drawGraphics, type ShapeLayer } from './draw-layers.ts'
-import { marchingSquares } from './patches.ts'
+import { marchingSquares } from './outlines.ts'
 import { distanceTo, fitPrimitives, type Primitive, repeatsRound } from './primitives.ts'
 import { ellipse, graphic, rectangle } from './test-pieces.ts'
 

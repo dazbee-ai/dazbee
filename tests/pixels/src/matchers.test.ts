@@ -1,14 +1,16 @@
 // The matchers on pictures drawn by Dazbee's renderer: a text in each script, matched by the text
 // matcher in Hybrid, comes back as one text layer in the face it was drawn in; and one picture holding
-// a piece of every shape kind, each matched as a shape piece of its job by the shape matcher's ladder,
-// comes back as graphics of that kind with its paint, bound to the brand kit where its colour is the
-// kit's; a painted scene stays a picture.
+// a piece of every shape kind, each matched as a shape piece of its job by the shape matcher, comes
+// back as the graphics that draw it, with its paint, bound to the brand kit where its colour is the
+// kit's: of its own kind, but a line with round caps as the turned rectangle it covers and a dashed
+// outline as one path of its dashes. Five free shapes come back as five paths that look the same, and
+// a picture of thousands of colours stays a picture.
 import { afterAll, describe, expect, it } from 'vitest'
 
-import { matchShapes, matchText } from '@dazbee/matchers'
+import { looksSame, matchShapes, matchText } from '@dazbee/matchers'
 import { textMatcherFiles } from '@dazbee/matchers/test-text-files'
 import { lightFonts, lightPieces, textJob } from '@dazbee/matchers/test-text-pieces'
-import { renderPixels } from '@dazbee/renderer'
+import { type Pixels, renderPixels } from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import { type MatchAnswer, MatchJob, type Paint, type PictureWhy, type UnplacedLayer } from '@dazbee/schema'
 
@@ -37,13 +39,16 @@ type DrawnProps = { x: number; y: number } & Record<string, unknown>
 /** A graphic of an answer. */
 type Graphic = Extract<UnplacedLayer, { type: 'graphic' }>
 
-/** A piece: what it is, its graphics' props in its cell, and what it should come back as: graphics of these kinds, or a picture and why. */
+/**
+ * A piece: what it is, its graphics' props in its cell, and what it should come back as: graphics of these kinds,
+ * which `check` reads with the piece's own pixels, or a picture and why.
+ */
 interface ShapePiece {
   name: string
   graphics: DrawnProps[]
   kinds: string[]
   why?: PictureWhy
-  check?: (graphics: Graphic[]) => void
+  check?: (graphics: Graphic[], piece: Pixels) => void
 }
 
 const PIECES: ShapePiece[] = [
@@ -71,13 +76,39 @@ const PIECES: ShapePiece[] = [
         x: 30,
         y: 78,
         width: 180,
+        height: 8,
+        rotation: 15,
+        shape: { kind: 'line', start: 'none', end: 'none' },
+        strokes: [{ paint: NAVY, width: 8, align: 'center', cap: 'butt' }],
+      },
+    ],
+    kinds: ['line'],
+    check: ([line]) => {
+      expect(line?.props).toMatchObject({ rotation: expect.closeTo(15, 0) })
+      expect(line?.props.strokes[0]).toMatchObject({ width: expect.closeTo(8, 0) })
+    },
+  },
+  {
+    name: 'a turned line with round caps',
+    graphics: [
+      {
+        x: 30,
+        y: 78,
+        width: 180,
         height: 4,
         rotation: 15,
         shape: { kind: 'line', start: 'none', end: 'none' },
         strokes: [{ paint: NAVY, width: 4, align: 'center', cap: 'round' }],
       },
     ],
-    kinds: ['line'],
+    kinds: ['rect'],
+    // The caps reach half the stroke's width past each end of the line.
+    check: ([pill]) =>
+      expect(pill?.props).toMatchObject({
+        width: expect.closeTo(184, -0.5),
+        height: expect.closeTo(4, 0),
+        rotation: expect.closeTo(15, 0),
+      }),
   },
   {
     name: 'a ring',
@@ -171,10 +202,10 @@ const PIECES: ShapePiece[] = [
         strokes: [{ paint: CORAL, width: 4, align: 'inside', dashes: [12, 6] }],
       },
     ],
-    kinds: ['rect'],
-    check: ([rect]) => {
-      expect(rect?.props.fills).toEqual([])
-      expect(rect?.props.strokes[0]?.dashes).toHaveLength(2)
+    kinds: ['path'],
+    check: ([dashes]) => {
+      expect(dashes?.props.fills).toEqual([CORAL])
+      expect(dashes?.props.strokes).toEqual([])
     },
   },
   {
@@ -203,7 +234,7 @@ const PIECES: ShapePiece[] = [
     check: ([disc]) => expect(disc?.props.fills[0]).toMatchObject({ type: 'radial' }),
   },
   {
-    name: 'a painted scene of five free shapes',
+    name: 'five free shapes',
     graphics: [
       freeShape(75, 75, 68, 1, '#2E9E4FFF'),
       freeShape(165, 75, 68, 2, '#F47B20FF'),
@@ -211,8 +242,43 @@ const PIECES: ShapePiece[] = [
       freeShape(165, 165, 68, 4, '#D61F8CFF'),
       freeShape(120, 120, 45, 5, '#FBD72BFF'),
     ],
+    kinds: ['path', 'path', 'path', 'path', 'path'],
+    check: (paths, piece) => expect(looksSame('shape', piece, drawnAlone(paths)).same).toBe(true),
+  },
+  {
+    name: 'a picture of thousands of colours',
+    graphics: [
+      {
+        x: 20,
+        y: 20,
+        width: 200,
+        height: 200,
+        shape: { kind: 'rect', cornerRadius: 0 },
+        fills: [
+          {
+            type: 'linear',
+            from: { x: 0, y: 0 },
+            to: { x: 1, y: 0 },
+            stops: ['#FF0000FF', '#FFFF00FF', '#00FF00FF', '#00FFFFFF', '#0000FFFF', '#FF00FFFF', '#FF0000FF'].map(
+              (color, i) => ({ offset: i / 6, color }),
+            ),
+          },
+          {
+            type: 'linear',
+            from: { x: 0, y: 0 },
+            to: { x: 0, y: 1 },
+            stops: [
+              { offset: 0, color: '#FFFFFFFF' },
+              { offset: 0.5, color: '#FFFFFF00' },
+              { offset: 0.5, color: '#00000000' },
+              { offset: 1, color: '#000000FF' },
+            ],
+          },
+        ],
+      },
+    ],
     kinds: [],
-    why: 'photo',
+    why: 'tooManyParts',
   },
   {
     name: 'a circle over a rectangle',
@@ -311,7 +377,7 @@ describe('matchShapes', () => {
     }
     const graphics = graphicsOf(answer)
     expect(graphics.map((graphic) => graphic.props.shape.kind)).toEqual(kinds)
-    check?.(graphics)
+    check?.(graphics, cellPixels(i))
   })
 })
 
@@ -321,7 +387,35 @@ function graphicsOf(answer: MatchAnswer): Graphic[] {
   return answer.layers.flatMap((layer) => (layer.type === 'graphic' ? [layer] : []))
 }
 
-/** A free shape of 14 corners at varied reach, in a box round its centre: one shape of a painted scene. */
+/** Piece i's own pixels: its cell of the picture. */
+function cellPixels(i: number): Pixels {
+  const { x, y } = cellOf(i)
+  const pixels = new Uint8Array(CELL * CELL * 4)
+  for (let row = 0; row < CELL; row++) {
+    const from = ((y + row) * PICTURE.width + x) * 4
+    pixels.set(PICTURE.pixels.subarray(from, from + CELL * 4), row * CELL * 4)
+  }
+  return { width: CELL, height: CELL, pixels }
+}
+
+/** An answer's graphics drawn alone in a cell, back to front. */
+function drawnAlone(graphics: readonly Graphic[]): Pixels {
+  return renderPixels(
+    ck,
+    {
+      meta: { designId: 'rebuilt-piece', name: 'Rebuilt piece' },
+      pages: { p: { name: 'Page 1', order: 'a0' } },
+      frames: { f: { pageId: 'p', name: 'Piece', width: CELL, height: CELL, x: 0, y: 0, fills: [], order: 'a0' } },
+      nodes: Object.fromEntries(
+        graphics.map((graphic, j) => [`n${j}`, { ...graphic, parentId: 'f', link: `n${j}`, index: `a${j}` }]),
+      ),
+    },
+    'f',
+    { fonts: [], fallbackFamilies: [], images: {} },
+  )
+}
+
+/** A free shape of 14 corners at varied reach, in a box round its centre. */
 function freeShape(cx: number, cy: number, r: number, seed: number, color: `#${string}`): DrawnProps {
   const corners = Array.from({ length: 14 }, (_, i) => {
     const a = (i / 14) * 2 * Math.PI

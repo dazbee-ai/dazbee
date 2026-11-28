@@ -22,10 +22,10 @@ export interface JudgeOptions {
   pieceInk?: Float32Array
 }
 
-/** Whether a rebuild looks the same as its piece, and the numbers that decided it. */
 /** The rule's numbers as `looksSame` gives them: every one but the colour guard's, which is text's alone. */
 export type RuleScores = LooksSameScores & { ssim: number; inkMissed: number }
 
+/** Whether a rebuild looks the same as its piece, and the numbers that decided it. */
 export interface Judged {
   same: boolean
   scores: RuleScores

@@ -1,12 +1,9 @@
 // Pieces the shape matcher's tests rebuild: graphics drawn by Dazbee's renderer, and PNGs read as the matchers read
 // pictures.
 
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
-
 import type { CanvasKit } from '@dazbee/canvaskit'
 import type { Pixels } from '@dazbee/renderer'
-import { type MatchAnswer, type Paint, type Shape, UnplacedLayer } from '@dazbee/schema'
+import type { Color, DropShadow, Paint, Shape } from '@dazbee/schema'
 
 import type { ShapeLayer, ShapeStroke } from './draw-layers.ts'
 
@@ -45,6 +42,51 @@ export function graphic(
       strokes: paint.stroke ? [paint.stroke] : [],
     },
   }
+}
+
+/** A rectangle of one colour for a test piece, with one radius for its corners, turned by `rotation` degrees. */
+export const rectangle = (
+  box: { x: number; y: number; width: number; height: number; rotation?: number },
+  color: Color,
+  cornerRadius = 0,
+): ShapeLayer => graphic({ kind: 'rect', cornerRadius }, box, { fill: { type: 'solid', color } })
+
+/** An ellipse of one colour for a test piece, turned by `rotation` degrees. */
+export const ellipse = (
+  box: { x: number; y: number; width: number; height: number; rotation?: number },
+  color: Color,
+): ShapeLayer => graphic({ kind: 'ellipse' }, box, { fill: { type: 'solid', color } })
+
+/** A graphic with a drop shadow, or a glow when the shadow has no offset. */
+export const shadowed = (layer: ShapeLayer, shadow: Omit<DropShadow, 'type' | 'spread'>): ShapeLayer => ({
+  ...layer,
+  props: { ...layer.props, effects: [{ type: 'dropShadow', spread: 0, ...shadow }] },
+})
+
+/** A picture of noise, 90 px a side: 2025 squares of 2 px, each of its own colour. */
+export const noise = (): ShapeLayer[] => {
+  let seed = 12345
+  const channel = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0
+    return ((seed >>> 8) & 255).toString(16).padStart(2, '0')
+  }
+  return Array.from({ length: 45 * 45 }, (_, i) =>
+    rectangle(
+      { x: (i % 45) * 2, y: Math.floor(i / 45) * 2, width: 2, height: 2 },
+      `#${channel()}${channel()}${channel()}FF`,
+    ),
+  )
+}
+
+/** What other layers hide of a piece of `width` × `height` pixels, one byte a pixel: the pixels of a box of it. */
+export const hiding = (
+  box: { x: number; y: number; width: number; height: number },
+  width: number,
+  height: number,
+): Uint8Array => {
+  const hidden = new Uint8Array(width * height)
+  for (let y = box.y; y < box.y + box.height; y++) hidden.fill(1, y * width + box.x, y * width + box.x + box.width)
+  return hidden
 }
 
 /** A free shape of 14 corners at varied reach, in a box round its centre: one shape of a painted scene. */

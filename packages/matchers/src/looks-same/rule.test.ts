@@ -4,7 +4,7 @@ import type { Pixels } from '@dazbee/renderer'
 import type { Rgb } from '@dazbee/schema'
 
 import { ciede2000, srgbToLab } from './colour.ts'
-import { LOOKS_SAME, looksSame } from './rule.ts'
+import { farShare, LOOKS_SAME, looksSame, shrunk } from './rule.ts'
 import { drawShapes, ellipse, prototypePairs, recoloured, rect, ring } from './test-pictures.ts'
 
 const WHITE: Rgb = [255, 255, 255]
@@ -143,5 +143,62 @@ describe('looksSame', () => {
     const { piece, rebuild, pieceInk, background } = pair('s150')
     const seen = { backgrounds: [background, WHITE], ...(pieceInk ? { pieceInk } : {}) }
     expect(looksSame('text', piece, rebuild, seen)).toEqual(looksSame('text', piece, rebuild, seen))
+  })
+})
+
+describe('farShare', () => {
+  it('is 0 for a rebuild that is the piece, and the share of one that is in a colour ΔE00 15 away', () => {
+    expect(farShare(badge(BLUE), badge(BLUE))).toBe(0)
+    // The badge's white disc, a fifth of it, is the same in both.
+    expect(farShare(badge(BLUE), badge(VIOLET))).toBeGreaterThan(0.75)
+    expect(farShare(badge(BLUE), badge(VIOLET))).toBeLessThan(0.85)
+  })
+
+  it('is the share of the foreground that a missing part is', () => {
+    const whole = drawShapes(200, 100, [
+      [rect(20, 20, 80, 60), BLUE],
+      [rect(120, 20, 40, 60), BLUE],
+    ])
+    const half = drawShapes(200, 100, [[rect(20, 20, 80, 60), BLUE]])
+    // The second rectangle is a third of the ink; the blur takes a little in at its edge.
+    expect(farShare(whole, half)).toBeGreaterThan(0.3)
+    expect(farShare(whole, half)).toBeLessThan(0.4)
+    expect(farShare(half, whole)).toBe(farShare(whole, half))
+  })
+
+  it('is the far share looksSame judges shapes by, over the see-through grey', () => {
+    const piece = drawShapes(100, 100, [[ring(50, 50, 40, 25), BLACK]])
+    const filled = drawShapes(100, 100, [
+      [ellipse(50, 50, 25, 25), WHITE],
+      [ring(50, 50, 40, 25), BLACK],
+    ])
+    const { scores } = looksSame('shape', piece, filled)
+    expect(scores.far).toBeGreaterThan(LOOKS_SAME.shape.far)
+    expect(farShare(piece, filled)).toBe(scores.far)
+    expect(farShare(badge(BLUE), badge(VIOLET))).toBe(looksSame('shape', badge(BLUE), badge(VIOLET)).scores.far)
+  })
+
+  it('takes a rebuild at the piece’s size or at the size the rule shrinks the piece to, and refuses another', () => {
+    const shapes = (scale: number, colour: Rgb) =>
+      drawShapes(1024 * scale, 300 * scale, [[rect(100 * scale, 50 * scale, 800 * scale, 200 * scale), colour]])
+    const piece = shapes(1, BLUE)
+    expect(farShare(piece, shapes(1, BLUE))).toBe(0)
+    expect(farShare(piece, shapes(0.5, BLUE))).toBe(0)
+    expect(farShare(piece, shapes(0.5, VIOLET))).toBeGreaterThan(0.9)
+    expect(() => farShare(piece, shapes(0.25, BLUE))).toThrow('the rebuild is 256×75, the piece 1024×300')
+  })
+})
+
+describe('shrunk', () => {
+  it('gives a picture at a smaller size with its colours and its see-through pixels kept, and itself at its own', () => {
+    const picture = badge(BLUE)
+    expect(shrunk(picture, 160, 120)).toBe(picture)
+    const half = shrunk(picture, 80, 60)
+    expect(half).toMatchObject({ width: 80, height: 60 })
+    expect(half.pixels).toHaveLength(80 * 60 * 4)
+    const at = (x: number, y: number) => [...half.pixels.subarray((y * 80 + x) * 4, (y * 80 + x) * 4 + 4)]
+    expect(at(10, 10)).toEqual([...BLUE, 255])
+    expect(at(40, 30)).toEqual([...WHITE, 255])
+    expect(at(2, 2)).toEqual([0, 0, 0, 0])
   })
 })

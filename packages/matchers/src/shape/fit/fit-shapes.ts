@@ -11,7 +11,7 @@ import { coverage, type ShapeLayer, type ShapeStroke } from '../draw-layers.ts'
 import type { FitWindow } from './fit-window.ts'
 import { MOST_SIDES, neighbourCounts, symmetryOf } from './symmetry.ts'
 
-/** The kinds of shape fitted: the first pass fits the first three, the full pass all five. */
+/** The kinds of shape a fit can be. */
 export type ShapeKind = 'rect' | 'ellipse' | 'line' | 'polygon' | 'star'
 
 /** A shape's settings, in piece pixels and degrees. */

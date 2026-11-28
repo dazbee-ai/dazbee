@@ -113,10 +113,11 @@ export const LooksSameScores = z.object({
 export type LooksSameScores = z.infer<typeof LooksSameScores>
 
 /**
- * Why a piece stays a picture: its shapes' rebuild doesn't look the same, it would take too many
- * layers, it is a photo or a painted scene (its shapes leave its shading and texture unexplained, or
- * are many free paths), it is too big, the matcher failed (for text, also when the piece has no ink to
- * read), or this browser can't run the matchers. A text piece the matcher reads always becomes text.
+ * Why a piece stays a picture: its shapes' rebuild doesn't look the same, it has too many parts (more
+ * colours, areas or patches than a flat drawing has, or more graphics than an answer holds), it is a
+ * photo or shaded art (flat colours leave too much of it unexplained), it is too big, the matcher
+ * failed (for text, also when the piece has no ink to read), or this browser can't run the matchers. A
+ * text piece the matcher reads always becomes text.
  */
 export const PictureWhy = z.enum(['looksDifferent', 'tooManyParts', 'photo', 'tooBig', 'failed', 'unsupported'])
 export type PictureWhy = z.infer<typeof PictureWhy>

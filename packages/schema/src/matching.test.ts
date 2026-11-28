@@ -94,6 +94,25 @@ describe('MatchJob', () => {
     expect(issues(MatchJob, { ...JOB, picture: 'not base64!' })).toEqual(['picture'])
   })
 
+  it('takes what other layers hide as one bit a pixel of the picture, and refuses a mask of another size', () => {
+    // 400 × 200 pixels are 80 000 bits, 10 000 bytes.
+    const bits = (bytes: number) => Buffer.from(new Uint8Array(bytes).fill(0xf0)).toString('base64')
+    expect(MatchJob.parse({ ...SHAPES_JOB, hidden: bits(10_000) }).hidden).toBe(bits(10_000))
+    expect(MatchJob.parse(SHAPES_JOB).hidden).toBeUndefined()
+    expect(issues(MatchJob, { ...SHAPES_JOB, hidden: bits(9_999) })).toEqual(['hidden'])
+    expect(issues(MatchJob, { ...SHAPES_JOB, hidden: bits(10_001) })).toEqual(['hidden'])
+    expect(issues(MatchJob, { ...SHAPES_JOB, hidden: '' })).toEqual(['hidden'])
+    expect(issues(MatchJob, { ...SHAPES_JOB, hidden: 'not base64!' })).toEqual(['hidden'])
+    // A picture whose pixels are no whole number of bytes takes the bits rounded up to one.
+    const odd = {
+      ...SHAPES_JOB,
+      picture: pngOf(5, 3),
+      pieces: [{ kind: 'shape', rect: { x: 0, y: 0, width: 5, height: 3 } }],
+    }
+    expect(issues(MatchJob, { ...odd, hidden: bits(2) })).toEqual([])
+    expect(issues(MatchJob, { ...odd, hidden: bits(1) })).toEqual(['hidden'])
+  })
+
   it('takes up to 4 background colours, and none for shapes', () => {
     expect(issues(MatchJob, SHAPES_JOB)).toEqual([])
     const white = [255, 255, 255]
@@ -116,6 +135,15 @@ describe('MatchAnswer', () => {
       }),
     ).toEqual(['layers.0.type'])
     expect(issues(MatchAnswer, { kind: 'layers', layers: [], scores: SCORES, approximate: false })).toEqual(['layers'])
+  })
+
+  it('takes a shape’s scores as the far share alone, and refuses scores without it', () => {
+    const layers = { kind: 'layers', layers: [TEXT_LAYER], approximate: false }
+    expect(MatchAnswer.parse({ ...layers, scores: { far: 0.004 } })).toMatchObject({ scores: { far: 0.004 } })
+    expect(MatchAnswer.parse({ kind: 'picture', why: 'looksDifferent', scores: { far: 0.3 } })).toMatchObject({
+      scores: { far: 0.3 },
+    })
+    expect(issues(MatchAnswer, { ...layers, scores: { ssim: 0.9, inkMissed: 0 } })).toEqual(['scores.far'])
   })
 
   it('says whether the layers are approximate, as they don’t look the same', () => {

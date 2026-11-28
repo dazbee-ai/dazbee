@@ -8,7 +8,16 @@ import {
   UnplacedLayer,
 } from '@dazbee/schema'
 
-import { matchedAs, matchedLayers, pieceMatchJob, rebuiltLayers, seenBehind } from './piece-matching.ts'
+import {
+  coverWith,
+  hiddenUnder,
+  matchedAs,
+  matchedLayers,
+  noCover,
+  pieceMatchJob,
+  rebuiltLayers,
+  seenBehind,
+} from './piece-matching.ts'
 
 /** A split piece of part `part`, at `x`, `y`, `width` × `height` px of the picture. */
 const piece = (part: string | null, kind: MadePiece['kind'], x = 0, y = 0, width = 100, height = 40): MadePiece => ({
@@ -106,6 +115,15 @@ const answerOf = (layers: UnplacedLayer[], approximate = false): MatchAnswer => 
 
 const KIT = { colors: {}, fonts: {}, textStyles: [] }
 
+/** A picture `width` × `height` px whose pixel at `x`, `y` is as opaque as `alpha(x, y)` says, 0 to 255. */
+const drawnAs = (width: number, height: number, alpha: (x: number, y: number) => number) => ({
+  width,
+  height,
+  pixels: Uint8Array.from(
+    Array.from({ length: width * height }, (_, i) => [9, 9, 9, alpha(i % width, Math.floor(i / width))]).flat(),
+  ),
+})
+
 describe('matchedAs', () => {
   const plan = planOf(part('e1', 'Big sale', ['Big', 'sale']), part('e2', 'Shop now'), part('e3', '  '))
 
@@ -128,8 +146,16 @@ describe('matchedAs', () => {
     expect(matchedAs(null, null, piece(null, 'shape'))).toEqual({ kind: 'shape' })
   })
 
+  it('matches a graphic piece and a background piece as shapes too, of a part or of none', () => {
+    for (const kind of ['graphic', 'background'] as const) {
+      expect(matchedAs(plan, null, piece('e1', kind))).toEqual({ kind: 'shape' })
+      expect(matchedAs(null, null, piece(null, kind))).toEqual({ kind: 'shape' })
+      expect(matchedAs(plan, null, piece('e1', kind, 0, 0, 2049, 10))).toBeNull()
+    }
+  })
+
   it('keeps a picture every other kind, a text with no part or no words, custom lettering and a piece too big to match', () => {
-    for (const kind of ['graphic', 'logo', 'cutout', 'photo', 'background', 'other'] as const)
+    for (const kind of ['logo', 'cutout', 'photo', 'other'] as const)
       expect(matchedAs(plan, null, piece('e1', kind))).toBeNull()
     expect(matchedAs(plan, null, piece('gone', 'text'))).toBeNull()
     expect(matchedAs(null, null, piece('e1', 'text'))).toBeNull()
@@ -141,7 +167,7 @@ describe('matchedAs', () => {
 })
 
 describe('pieceMatchJob', () => {
-  it('asks for the piece’s own picture whole, as one piece, a text’s with the colours it is seen on', () => {
+  it('asks for the piece’s own picture whole, as one piece, with the colours it is seen on when any are given', () => {
     const size = { width: 100, height: 40 }
     expect(pieceMatchJob('AAAA', size, { kind: 'text', words: 'Big sale', angle: 3 }, KIT, [[1, 2, 3]])).toEqual({
       picture: 'AAAA',
@@ -156,7 +182,25 @@ describe('pieceMatchJob', () => {
       pieces: [{ kind: 'shape', rect: { x: 0, y: 0, width: 100, height: 40 } }],
       kit: KIT,
       setting: 'hybrid',
+      backgrounds: [[1, 2, 3]],
     })
+    expect(pieceMatchJob('AAAA', size, { kind: 'shape' }, KIT)).not.toHaveProperty('backgrounds')
+    expect(pieceMatchJob('AAAA', size, { kind: 'shape' }, KIT, [])).not.toHaveProperty('backgrounds')
+  })
+
+  it('carries what is hidden of a shape, and of no text', () => {
+    const size = { width: 100, height: 40 }
+    expect(pieceMatchJob('AAAA', size, { kind: 'shape' }, KIT, undefined, 'gA==')).toEqual({
+      picture: 'AAAA',
+      pieces: [{ kind: 'shape', rect: { x: 0, y: 0, width: 100, height: 40 } }],
+      kit: KIT,
+      setting: 'hybrid',
+      hidden: 'gA==',
+    })
+    expect(pieceMatchJob('AAAA', size, { kind: 'shape' }, KIT)).not.toHaveProperty('hidden')
+    expect(pieceMatchJob('AAAA', size, { kind: 'text', words: 'Big sale' }, KIT, undefined, 'gA==')).not.toHaveProperty(
+      'hidden',
+    )
   })
 })
 
@@ -188,6 +232,71 @@ describe('seenBehind', () => {
         row(59, () => [1, 2, 3, 255]),
         row(60, () => [0, 0, 0, 0]),
       ),
+    ).toBeNull()
+  })
+})
+
+describe('noCover', () => {
+  it('covers nothing of the picture', () => {
+    expect(noCover({ width: 3, height: 2 })).toEqual({ width: 3, height: 2, covered: new Uint8Array(6) })
+  })
+})
+
+describe('coverWith', () => {
+  it('covers the picture where the piece is at least half opaque, at the piece’s place', () => {
+    const cover = noCover({ width: 4, height: 3 })
+    // A 2 × 2 piece at 1, 1: opaque, just half opaque, just under half, and clear.
+    coverWith(
+      cover,
+      { x: 1, y: 1 },
+      drawnAs(2, 2, (x, y) => [255, 128, 127, 0][y * 2 + x] ?? 0),
+    )
+    expect([...cover.covered]).toEqual([0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0])
+  })
+
+  it('keeps what earlier pieces cover, and covers nothing past the picture', () => {
+    const cover = noCover({ width: 3, height: 2 })
+    coverWith(
+      cover,
+      { x: 0, y: 0 },
+      drawnAs(1, 1, () => 255),
+    )
+    // A 2 × 2 piece at 2, 1 reaches a pixel past the picture's right side and one past its bottom.
+    coverWith(
+      cover,
+      { x: 2, y: 1 },
+      drawnAs(2, 2, () => 255),
+    )
+    expect([...cover.covered]).toEqual([1, 0, 0, 0, 0, 1])
+  })
+})
+
+describe('hiddenUnder', () => {
+  /** A 4 × 4 picture whose left half a piece in front covers. */
+  const leftHalf = () => {
+    const cover = noCover({ width: 4, height: 4 })
+    coverWith(
+      cover,
+      { x: 0, y: 0 },
+      drawnAs(2, 4, () => 255),
+    )
+    return cover
+  }
+
+  it('is what the pieces in front cover of the piece, a byte a pixel of the piece’s own picture', () => {
+    // A 3 × 2 piece at 1, 1: its first column lies under the cover.
+    const hidden = hiddenUnder(leftHalf(), { x: 1, y: 1, picture: { key: 'k', width: 3, height: 2 } })
+    expect([...(hidden ?? [])]).toEqual([1, 0, 0, 1, 0, 0])
+  })
+
+  it('is every pixel of a piece wholly covered, and none when nothing covers the piece', () => {
+    const cover = leftHalf()
+    expect([...(hiddenUnder(cover, { x: 0, y: 2, picture: { key: 'k', width: 2, height: 2 } }) ?? [])]).toEqual([
+      1, 1, 1, 1,
+    ])
+    expect(hiddenUnder(cover, { x: 2, y: 0, picture: { key: 'k', width: 2, height: 4 } })).toBeNull()
+    expect(
+      hiddenUnder(noCover({ width: 4, height: 4 }), { x: 0, y: 0, picture: { key: 'k', width: 4, height: 4 } }),
     ).toBeNull()
   })
 })

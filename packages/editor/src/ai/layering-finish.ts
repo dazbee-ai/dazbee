@@ -2,9 +2,10 @@
 // layers, a tab claims the job's finish through the API, renews the lease every minute while it works, and lets it
 // go once done. A frame whose split cut split pieces, each recorded as an asset, gets a layer per piece, named after
 // its planned part, with nothing downloaded or uploaded: a text piece the text matcher rebuilds becomes a live text,
-// fitted to its words and bound to the brand kit where the matcher bound it, a shape piece the shape matcher
-// rebuilds becomes its graphics, and every other piece a picture layer, where the picture's own fill draws the
-// piece (`piece-rebuild.ts`, which also tells the frame's pieces as lifting while the matchers work). For any other
+// fitted to its words and bound to the brand kit where the matcher bound it, a shape, a graphic or a background
+// piece the shape matcher rebuilds becomes its graphics, in one group when they are several, and every other piece
+// a picture layer, where the picture's own fill draws the piece (`piece-rebuild.ts`, which also tells the frame's
+// pieces as lifting while the matchers work). For any other
 // frame it downloads each split layer, crops it to what it shows, scaled to the frame, and uploads the crops as
 // hidden parts of the brand, a picture layer per split layer. Either way the layers are placed in the frame
 // (`place-layers.ts`) as one arrival no undo takes back: the picture layer hidden at the bottom, then the layers,
@@ -29,6 +30,7 @@ import {
   type PieceBox,
   pieceBox,
   pieceCrop,
+  pieceGroupId,
   pieceId,
   pieceLink,
   pieceName,
@@ -293,8 +295,8 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
 
   /**
    * The frame's piece layers `layers`, one per split piece of `cut`, with those the matchers rebuild given their
-   * live layers, placed in the frame of size `own`, each with its id. On the `last` try, a rebuild that fails leaves
-   * every piece a picture.
+   * live layers, placed in the frame of size `own`, each with its id, and the id of the group several of them are
+   * put in. On the `last` try, a rebuild that fails leaves every piece a picture.
    */
   async function rebuilt(
     frame: AiFrameView,
@@ -314,7 +316,7 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
     }
     return layers.map((layer, n) => {
       const matched = made.get(n)?.map((one, nth) => ({ id: pieceId(job.id, frame.frameId, n, nth), layer: one }))
-      return matched ? { ...layer, matched } : layer
+      return matched ? { ...layer, matched, group: pieceGroupId(job.id, frame.frameId, n) } : layer
     })
   }
 

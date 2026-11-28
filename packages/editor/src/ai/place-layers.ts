@@ -2,7 +2,7 @@
 // as the split saw it, whether an earlier finish placed the job's layers in it already, and the commands that hide
 // the picture layer and place the layers over it, bottom first: a picture layer for a split piece or a split layer,
 // and for a piece a matcher rebuilt its live layers, bound to the brand kit as the matcher bound them, a text
-// fitted to its words.
+// fitted to its words, and several layers of one piece in a group named after the piece.
 import { CommandError, type Session } from '@dazbee/doc'
 import type { FontUse } from '@dazbee/fonts'
 import {
@@ -35,6 +35,8 @@ export interface PlacedLayer {
   crop?: ImageCrop
   /** The layers a matcher rebuilt a split piece as, bottom first, each with its id, placed in the frame; left out, its picture is placed. */
   matched?: readonly { id: string; layer: UnplacedLayer }[] | undefined
+  /** The id of the group its rebuilt layers are put in when they are several. */
+  group?: string | undefined
 }
 
 export interface PlaceLayersDeps {
@@ -88,7 +90,7 @@ export function placeLayers({ session, fitText }: PlaceLayersDeps): PlaceLayers 
     for (const layer of [...layers].reverse()) {
       const link = layer.link !== null && !holdsLink(frame.frameId, layer.link) ? { link: layer.link } : {}
       if (layer.matched) {
-        placeMatched(frame.frameId, layer.name, layer.matched, link)
+        placeMatched(frame.frameId, layer.name, layer.matched, link, layer.group)
         continue
       }
       session.run('node.create', {
@@ -115,13 +117,15 @@ export function placeLayers({ session, fitText }: PlaceLayersDeps): PlaceLayers 
   /**
    * Places the layers `matched` a matcher rebuilt a split piece as on top of frame `frameId`, bottom first: named
    * `name`, numbered when several, the first with the piece's link id when `link` gives one, each bound to the brand
-   * kit as the matcher bound it, and a text fitted to its words.
+   * kit as the matcher bound it, and a text fitted to its words. Several are then put in one group named `name`,
+   * where they were placed, with the id `group` when one is given.
    */
   function placeMatched(
     frameId: string,
     name: string,
     matched: NonNullable<PlacedLayer['matched']>,
     link: { link?: string },
+    group: string | undefined,
   ) {
     for (const [nth, { id, layer }] of matched.entries()) {
       session.run('node.create', {
@@ -136,6 +140,9 @@ export function placeLayers({ session, fitText }: PlaceLayersDeps): PlaceLayers 
       }
       if (layer.type === 'text') fitText(id)
     }
+    if (matched.length < 2) return
+    const ids = matched.map(({ id }) => id)
+    session.run('node.group', { ids, ...(group === undefined ? {} : { id: group }), name })
   }
 
   /** Binds `property` of layer `id` to the brand kit's `ref`, whose value now is `value`; a binding the design refuses is left out. */

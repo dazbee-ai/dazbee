@@ -98,7 +98,7 @@ function matchers(answers: Record<number, MatchAnswer>) {
 afterEach(endTabs)
 
 describe('editorLayeringFinish', () => {
-  it('places a text piece as a live text and a shape piece as its graphics, the rest as pictures, over the hidden picture', async () => {
+  it('places a text piece as a live text and a shape piece as its graphics in one group, the rest as pictures, over the hidden picture', async () => {
     serve(WORDS)
     const ai = fakeAi()
     const { asked, matcher } = matchers({
@@ -118,9 +118,12 @@ describe('editorLayeringFinish', () => {
     expect(childrenOf(design, 'ann-1').map(([id, layer]) => [id, layer.type, layer.name])).toEqual([
       [pictureLayerOf('ann-1'), 'graphic', 'Picture'],
       ['job2-ann-1-2', 'graphic', 'Backdrop'],
+      ['job2-ann-1-1_group', 'group', 'Badge'],
+      ['job2-ann-1-0', 'text', 'Headline'],
+    ])
+    expect(childrenOf(design, 'job2-ann-1-1_group').map(([id, layer]) => [id, layer.type, layer.name])).toEqual([
       ['job2-ann-1-1', 'graphic', 'Badge 1'],
       ['job2-ann-1-1_1', 'graphic', 'Badge 2'],
-      ['job2-ann-1-0', 'text', 'Headline'],
     ])
     expect(design.nodes[pictureLayerOf('ann-1')]?.props.visible).toBe(false)
     // The 1024 px picture fills the 1080 px frame, so every place and size is 1080 / 1024 times the piece's.
@@ -269,9 +272,9 @@ describe('editorLayeringFinish', () => {
 
     expect(ai.finishes).toEqual(['job3'])
     const links = (frameId: string) => placed(a.tab, frameId).map(({ name, link }) => [name, link?.startsWith('job3-')])
+    // The badge's two graphics are in a group, which has a link id of its own.
     expect(links('ann-6')).toEqual([
-      ['Badge 1', true],
-      ['Badge 2', undefined],
+      ['Badge', undefined],
       ['Headline', true],
     ])
     expect(links('ann-7')).toEqual(links('ann-6'))
@@ -297,15 +300,18 @@ describe('editorLayeringFinish', () => {
     ai.split('job2', 0, [NO_PICTURE], PLAN, { pieces: PIECES })
     await pollAll(a.tab)
     await settleAll(a)
-    const first = childrenOf(a.tab.editor.session.design(), 'ann-1').map(([id]) => id)
-    expect(first).toHaveLength(5)
+    const idsIn = (parentId: string) => childrenOf(a.tab.editor.session.design(), parentId).map(([id]) => id)
+    const first = idsIn('ann-1')
+    expect(first).toHaveLength(4)
+    expect(idsIn('job2-ann-1-1_group')).toEqual(['job2-ann-1-1', 'job2-ann-1-1_1'])
     a.tab.editor.session.run('node.update', { ids: ['job2-ann-1-1_1'], patch: { x: 400 } })
 
     for (const run of a.timers.splice(0)) run()
     await settleAll(a)
     expect(ai.finishes).toEqual(['job2'])
     const design = a.tab.editor.session.design()
-    expect(childrenOf(design, 'ann-1').map(([id]) => id)).toEqual(first)
+    expect(idsIn('ann-1')).toEqual(first)
+    expect(idsIn('job2-ann-1-1_group')).toEqual(['job2-ann-1-1', 'job2-ann-1-1_1'])
     expect(design.nodes['job2-ann-1-1_1']?.props.x).toBe(400)
   })
 

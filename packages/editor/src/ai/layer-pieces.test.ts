@@ -11,6 +11,7 @@ import {
   onePlan,
   pieceBox,
   pieceCrop,
+  pieceGroupId,
   pieceId,
   pieceLink,
   pieceName,
@@ -431,5 +432,15 @@ describe('pieceId', () => {
     expect(pieceId('job', 'frame', 2, 1)).toBe('job-frame-2_1')
     expect(pieceId('j'.repeat(40), 'f'.repeat(40), 12, 3)).toHaveLength(64)
     expect(pieceId('j'.repeat(40), 'f'.repeat(40), 12, 3).endsWith('-12_3')).toBe(true)
+  })
+})
+
+describe('pieceGroupId', () => {
+  it('comes from the job, the frame and the piece, is no layer’s id, and is at most 64 characters', () => {
+    expect(pieceGroupId('job', 'frame', 2)).toBe('job-frame-2_group')
+    const layers = [0, 1, 2, 3].map((nth) => pieceId('job', 'frame', 2, nth))
+    expect(layers).not.toContain(pieceGroupId('job', 'frame', 2))
+    expect(pieceGroupId('j'.repeat(40), 'f'.repeat(40), 12)).toHaveLength(64)
+    expect(pieceGroupId('j'.repeat(40), 'f'.repeat(40), 12).endsWith('-12_group')).toBe(true)
   })
 })

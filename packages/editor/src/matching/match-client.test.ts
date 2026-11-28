@@ -14,7 +14,7 @@ import {
 } from './match-pool.ts'
 
 const TEXT_TOLD: TextStep[] = ['reading', 'shortlist', 'fitting', 'finerFit']
-const SHAPE_TOLD: ShapeStep[] = ['colourSplit', 'firstPass', 'judging', 'fullPass', 'judging']
+const SHAPE_TOLD: ShapeStep[] = ['patches', 'graphics', 'judging', 'graphics', 'judging']
 const score = (index: number) => ({ ssim: index / 10, inkMissed: 0, far: 0 })
 /** The answer the stand-in gives the piece at `index`. */
 const answerOf = (index: number): MatchAnswer => ({ kind: 'picture', why: 'looksDifferent', scores: score(index) })

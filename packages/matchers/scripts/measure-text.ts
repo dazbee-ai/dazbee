@@ -164,7 +164,7 @@ async function measure(list: readonly MeasuredPiece[], print: boolean): Promise<
     const decision = answer.kind === 'picture' ? `picture (${answer.why})` : answer.approximate ? 'approximate' : 'text'
     console.log(
       `${id}  ${decision}  ${key ?? '-'}  ` +
-        (scores ? `ssim ${scores.ssim.toFixed(4)} ink missed ${scores.inkMissed.toFixed(4)}` : ''),
+        (scores ? `ssim ${scores.ssim?.toFixed(4)} ink missed ${scores.inkMissed?.toFixed(4)}` : ''),
     )
   }
   return measured

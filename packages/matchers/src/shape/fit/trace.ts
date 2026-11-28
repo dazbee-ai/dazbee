@@ -3,13 +3,10 @@
 // sharply; between corners, cubic Béziers are fitted by least squares on chord-length parameters,
 // re-parameterised by Newton steps, and split at the worst point until they keep within a tolerance.
 
-import type { Paint } from '@dazbee/schema'
+/** A point: x, y. */
+export type Point = [number, number]
 
-import type { ShapeLayer } from '../draw-layers.ts'
-import { contours, type Point } from '../parts/contours.ts'
-import type { FitWindow } from './fit-window.ts'
-
-/** A traced path: its data in its own box, and the box in the window's piece pixels. */
+/** A traced path: its data in its own box, and the box in the piece's pixels. */
 export interface Traced {
   d: string
   box: { x: number; y: number; width: number; height: number }
@@ -19,9 +16,6 @@ export interface Traced {
 type Curve = [Point, Point] | [Point, Point, Point, Point]
 type Bezier = [Point, Point, Point, Point]
 
-/** Outlines with fewer points, or a smaller area in fitting pixels, are specks and left out. */
-const FEWEST_POINTS = 6
-const SMALLEST_AREA = 2
 /** An outline turning by more than this, in radians, over a few points each side has a corner. */
 const CORNER_TURN = (55 * Math.PI) / 180
 /** A run straying from its chord by no more than this share of the tolerance is a line. */
@@ -32,13 +26,10 @@ const NEWTON_WITHIN = 6
 /** How deep a run may be split. */
 const DEEPEST = 10
 
-/** A window's coverage traced as one evenodd path, within `tolerance` piece pixels; null when nothing is left to trace. */
-export function tracePath(window: FitWindow, tolerance: number): Traced | null {
-  const loops = contours(window.mask, window.width, window.height, 0.5).filter(
-    (loop) => loop.length >= FEWEST_POINTS && Math.abs(areaOf(loop)) >= SMALLEST_AREA,
-  )
+/** Closed outlines, in piece pixels, as one evenodd path within `tolerance` of them once smoothed; null when there are none. */
+export function tracedLoops(loops: readonly (readonly Point[])[], tolerance: number): Traced | null {
   if (loops.length === 0) return null
-  const scaled = loops.map((loop) => smoothed(loop.map(([x, y]): Point => [x / window.scale, y / window.scale])))
+  const scaled = loops.map((loop) => smoothed(loop))
   let x0 = Infinity
   let y0 = Infinity
   let x1 = -Infinity
@@ -63,36 +54,6 @@ export function tracePath(window: FitWindow, tolerance: number): Traced | null {
     parts.push('Z')
   }
   return { d: parts.join(''), box: { x: x0, y: y0, width: Math.max(0.01, x1 - x0), height: Math.max(0.01, y1 - y0) } }
-}
-
-/** The graphic a traced path draws in a window's piece pixels, filled with the paint. */
-export function pathLayer(traced: Traced, window: FitWindow, paint: Paint, name: string): ShapeLayer {
-  const { box } = traced
-  return {
-    type: 'graphic',
-    name,
-    props: {
-      x: box.x + window.offsetX,
-      y: box.y + window.offsetY,
-      width: box.width,
-      height: box.height,
-      rotation: 0,
-      shape: { kind: 'path', d: traced.d, fillRule: 'evenodd', drawnIn: { width: box.width, height: box.height } },
-      fills: [paint],
-      strokes: [],
-    },
-  }
-}
-
-/** An outline's signed area. */
-function areaOf(loop: readonly Point[]): number {
-  let area = 0
-  for (let i = 0; i < loop.length; i++) {
-    const [ax, ay] = loop[i] ?? [0, 0]
-    const [bx, by] = loop[(i + 1) % loop.length] ?? [0, 0]
-    area += ax * by - bx * ay
-  }
-  return area / 2
 }
 
 /** One pass of [1 2 1] smoothing, which steadies AI-wobbled edges without moving corners far. */

@@ -1,5 +1,5 @@
-// Pieces the shape matcher's tests rebuild: graphics drawn by Dazbee's renderer, and pieces of the
-// shape prototype's synthetic set 2 with the prototype's first-pass, ladder or full-pass answers for them.
+// Pieces the shape matcher's tests rebuild: graphics drawn by Dazbee's renderer, and PNGs read as the matchers read
+// pictures.
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -9,69 +9,6 @@ import type { Pixels } from '@dazbee/renderer'
 import { type MatchAnswer, type Paint, type Shape, UnplacedLayer } from '@dazbee/schema'
 
 import type { ShapeLayer, ShapeStroke } from './draw-layers.ts'
-
-/** The prototype's answer for a piece: its decision, why, the fitted rule's numbers and its graphics. */
-export interface PrototypeAnswer {
-  decision: 'shapes' | 'picture'
-  why: string
-  fitted: { ssim: number; far: number; inkMissed: number } | null
-  layers: unknown[]
-  /** The photo guard's score of the graphics, for shapes. */
-  photoScore?: number
-}
-
-/** A piece of synthetic set 2, the brand kit it was matched with, and the prototype's first-pass and ladder answers. */
-export interface PrototypePiece {
-  id: string
-  family: string
-  degradation: string
-  kit: Record<string, `#${string}`>
-  firstPass: PrototypeAnswer
-  /** The shape baseline's answer: the prototype's ladder with the photo guard. */
-  ladder: PrototypeAnswer
-  pixels: Pixels
-}
-
-/** A piece of synthetic set 2, the brand kit it was matched with, and the prototype's full-pass answer. */
-export interface PrototypeFullPiece extends Omit<PrototypePiece, 'firstPass' | 'ladder'> {
-  fullPass: PrototypeAnswer
-}
-
-const FIXTURES = join(import.meta.dirname, '..', '..', 'fixtures', 'shape-prototype')
-const FULL_FIXTURES = join(import.meta.dirname, '..', '..', 'fixtures', 'shape-prototype-full')
-
-/** The prototype's pieces, read with CanvasKit as the matchers read pictures. */
-export function prototypePieces(ck: CanvasKit): PrototypePiece[] {
-  const { pieces } = JSON.parse(readFileSync(join(FIXTURES, 'answers.json'), 'utf8')) as {
-    pieces: Omit<PrototypePiece, 'pixels'>[]
-  }
-  return pieces.map((piece) => ({ ...piece, pixels: decodePng(ck, readFileSync(join(FIXTURES, `${piece.id}.png`))) }))
-}
-
-/** The prototype's pieces with its full-pass answers, read with CanvasKit as the matchers read pictures. */
-export function prototypeFullPieces(ck: CanvasKit): PrototypeFullPiece[] {
-  const { pieces } = JSON.parse(readFileSync(join(FULL_FIXTURES, 'answers.json'), 'utf8')) as {
-    pieces: Omit<PrototypeFullPiece, 'pixels'>[]
-  }
-  return pieces.map((piece) => ({
-    ...piece,
-    pixels: decodePng(ck, readFileSync(join(FULL_FIXTURES, `${piece.id}.png`))),
-  }))
-}
-
-/** The prototype's answer in the matcher's words. */
-export const prototypeAnswer = ({ decision, why, fitted, layers }: PrototypeAnswer): MatchAnswer => {
-  const scores = fitted ? { ssim: fitted.ssim, inkMissed: fitted.inkMissed, far: fitted.far } : undefined
-  if (decision === 'shapes') {
-    if (!scores) throw new Error('shapes without the rule’s numbers')
-    return { kind: 'layers', layers: layers.map((layer) => UnplacedLayer.parse(layer)), scores, approximate: false }
-  }
-  return {
-    kind: 'picture',
-    why: why.startsWith('looks different') ? 'looksDifferent' : why.startsWith('a photo') ? 'photo' : 'tooManyParts',
-    ...(scores ? { scores } : {}),
-  }
-}
 
 /** A PNG's pixels, 8-bit RGBA with straight alpha. */
 export function decodePng(ck: CanvasKit, bytes: Uint8Array): Pixels {

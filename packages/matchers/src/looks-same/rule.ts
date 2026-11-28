@@ -23,9 +23,12 @@ export interface JudgeOptions {
 }
 
 /** Whether a rebuild looks the same as its piece, and the numbers that decided it. */
+/** The rule's numbers as `looksSame` gives them: every one but the colour guard's, which is text's alone. */
+export type RuleScores = LooksSameScores & { ssim: number; inkMissed: number }
+
 export interface Judged {
   same: boolean
-  scores: LooksSameScores
+  scores: RuleScores
 }
 
 /** A luminance picture, and its mean and its square's mean in the SSIM window. */
@@ -93,6 +96,44 @@ export function looksSame(kind: PieceKind, piece: Pixels, rebuild: Pixels, optio
   return { same, scores: { ...measured, inkColour } }
 }
 
+/** What `farShare` reads from a piece alone, kept while the piece is judged again. */
+const piecesFar = new WeakMap<Pixels, { width: number; height: number; fg: Uint8Array; rgb: Float32Array }>()
+
+/**
+ * The share of a shape rebuild's foreground that is far from its piece's, the number shapes are judged by, read
+ * as `looksSame` reads it over the see-through grey, without the numbers only text is judged by. The rebuild is
+ * the piece's size, or already the size the rule shrinks the piece to.
+ */
+export function farShare(piece: Pixels, rebuild: Pixels): number {
+  let seen = piecesFar.get(piece)
+  if (!seen) {
+    const scale = Math.min(1, LOOKS_SAME.maxSide / Math.max(piece.width, piece.height))
+    const width = Math.max(1, Math.round(piece.width * scale))
+    const height = Math.max(1, Math.round(piece.height * scale))
+    const a = shrink(piece, width, height)
+    const fg = new Uint8Array(width * height)
+    for (let i = 0; i < width * height; i++) fg[i] = (a.pixels[i * 4 + 3] ?? 0) > 127 ? 1 : 0
+    seen = { width, height, fg, rgb: blurRgb(over(a, LOOKS_SAME.seeThrough), width, height, LOOKS_SAME.blur) }
+    piecesFar.set(piece, seen)
+  }
+  const { width, height, fg, rgb } = seen
+  const sameSize = rebuild.width === piece.width && rebuild.height === piece.height
+  if (!sameSize && (rebuild.width !== width || rebuild.height !== height)) {
+    throw new Error(`the rebuild is ${rebuild.width}×${rebuild.height}, the piece ${piece.width}×${piece.height}`)
+  }
+  const b = shrink(rebuild, width, height)
+  const seenB = blurRgb(over(b, LOOKS_SAME.seeThrough), width, height, LOOKS_SAME.blur)
+  const memo = new Map<number, number>()
+  let count = 0
+  let far = 0
+  for (let i = 0; i < width * height; i++) {
+    if (!fg[i] && (b.pixels[i * 4 + 3] ?? 0) <= 127) continue
+    count++
+    if (pixelDeltaE(rgb, seenB, i, memo) > LOOKS_SAME.farDeltaE) far++
+  }
+  return count ? far / count : 0
+}
+
 /** ΔE00 between pixel i of two RGB pictures, each colour rounded to 8 bits; remembered by colour pair. */
 export function pixelDeltaE(a: Float32Array, b: Float32Array, i: number, memo: Map<number, number>): number {
   const ka = packed(a, i)
@@ -109,7 +150,7 @@ export function pixelDeltaE(a: Float32Array, b: Float32Array, i: number, memo: M
 }
 
 /** SSIM, ink missed and the far share, the worse over the backgrounds. */
-function measure(piece: Pixels, rebuild: Pixels, options: JudgeOptions): Required<Omit<LooksSameScores, 'inkColour'>> {
+function measure(piece: Pixels, rebuild: Pixels, options: JudgeOptions): RuleScores {
   if (piece.width !== rebuild.width || piece.height !== rebuild.height) {
     throw new Error(`the rebuild is ${rebuild.width}×${rebuild.height}, the piece ${piece.width}×${piece.height}`)
   }
@@ -168,6 +209,10 @@ function pieceSeen(piece: Pixels, options: JudgeOptions): PieceSeen {
 }
 
 /** A picture shrunk with a box filter in premultiplied colour, its alpha kept; itself at its own size. */
+export function shrunk(picture: Pixels, width: number, height: number): Pixels {
+  return shrink(picture, width, height)
+}
+
 function shrink(picture: Pixels, width: number, height: number): Pixels {
   if (width === picture.width && height === picture.height) return picture
   const src = picture.pixels

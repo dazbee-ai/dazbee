@@ -94,7 +94,9 @@ async function matchTwice(pixels: Pixels, words: string, setting: MatchSetting =
 /** The closeness the rule's scores give an answer's layers. */
 function closenessOf(answer: MatchAnswer): number {
   if (answer.kind !== 'layers') throw new Error(`a picture: ${answer.why}`)
-  return closeness(answer.scores)
+  const { ssim, inkMissed } = answer.scores
+  if (ssim === undefined || inkMissed === undefined) throw new Error('a text answer without the rule’s text numbers')
+  return closeness({ ...answer.scores, ssim, inkMissed })
 }
 
 /** A piece of Light's test matched once in Light and once in Hybrid. */

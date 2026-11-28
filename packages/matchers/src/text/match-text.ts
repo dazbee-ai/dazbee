@@ -11,7 +11,8 @@
 // matched straightened along it (`effects/curve-frame.ts`), the face drawn curved
 // (`effects/curve.ts`): first when far off straight, else when the straight answer doesn't look the
 // same; a curve that looks the same is given unless it bends too little to replace a straight answer
-// that does, else the closer.
+// that does, else the closer. A text that looks the same takes the runs the piece inks in another
+// colour (`run-colours.ts`).
 
 import type { CanvasKit } from '@dazbee/canvaskit'
 import type { CatalogFace } from '@dazbee/fonts'
@@ -38,6 +39,7 @@ import { closeness, FINALISTS, finish, judgeText, type Verified, verify, type Ve
 import type { ModelRuntime } from './model-runtime.ts'
 import { notoCandidates, plainFit } from './noto.ts'
 import { type PieceReading, type ReadPiece, readPiece, type TextPiece } from './read-piece.ts'
+import { colourRuns } from './run-colours.ts'
 import { type Candidate, shortlist } from './shortlist.ts'
 import type { TextFiles } from './text-files.ts'
 
@@ -96,12 +98,17 @@ interface FacesTried {
   plainWhenUnfitted: boolean
 }
 
+/** The answer in one of the faces tried, and those faces' bytes by key. */
+interface FaceMatched {
+  matched: Verified
+  faces: ReadonlyMap<string, Uint8Array>
+}
+
 /** What `matchFaces` found: the answer, or that none of the faces loaded or none could be fitted. */
-type FacesMatched = Verified | 'unloaded' | 'unfitted'
+type FacesMatched = FaceMatched | 'unloaded' | 'unfitted'
 
 /** The answer found for one reading of a piece, and whether it is set in Noto. */
-interface ReadingMatched {
-  matched: Verified
+interface ReadingMatched extends FaceMatched {
   inNoto: boolean
 }
 
@@ -118,8 +125,10 @@ const SHRINK_FURTHER = 0.9
  * A job's text piece as one text layer in the piece's pixels, approximate when it doesn't look the
  * same, or when it is set in Noto as no catalog face draws its characters or none shortlisted fits.
  * Hybrid gives its finer fit when that looks the same, else Light's answer when that does, so it
- * keeps every piece Light makes look the same. The piece stays a picture, `failed`, only when it has
- * no ink to read or the font source gives none of the faces it tries.
+ * keeps every piece Light makes look the same. A text that looks the same has its letters where the
+ * piece's are, so the stretches the piece inks in another colour are read and given as runs. The
+ * piece stays a picture, `failed`, only when it has no ink to read or the font source gives none of
+ * the faces it tries.
  */
 export async function matchText(job: MatchJob, piece: TextPieceOfJob, deps: TextMatcherDeps): Promise<MatchAnswer> {
   return (await matchTextWithFace(job, piece, deps)).answer
@@ -177,13 +186,18 @@ export async function matchTextWithFace(
     best = closerMatch(straight, tryCurve ? await matchCurved(job, textPiece, read, deps, step) : 'failed')
   }
   if (best === 'failed') return { answer: pictureAnswer('failed') }
-  const { matched, inNoto } = best
-  const { look, place, scores, bindings, styleLook } = matched
+  const { matched, inNoto, faces } = best
+  const { look, place, bindings, styleLook } = matched
+  const approximate = inNoto || !matched.same
+  const backgrounds: readonly Rgb[] = job.backgrounds ?? [read.whole.background]
+  const target: VerifyTarget = { reading: read.whole, words, backgrounds, kit: job.kit, scale: 1 }
+  const coloured = approximate ? null : colourRuns(ck, drawnFaces([matched.face], faces), target, matched)
   return {
-    answer: textAnswer(words, look, place, scores, {
-      approximate: inNoto || !matched.same,
+    answer: textAnswer(words, look, place, coloured?.judged.scores ?? matched.scores, {
+      approximate,
       bindings,
       ...(styleLook ? { styleLook } : {}),
+      ...(coloured ? { runs: coloured.runs } : {}),
     }),
     face: { family: matched.face.family, weight: matched.face.weight, style: matched.face.style },
   }
@@ -220,7 +234,7 @@ async function matchReading(
   const listedMatch: FacesMatched =
     listed.candidates.length > 0 ? await matchFaces(fitting, { ...listed, plainWhenUnfitted: false }) : 'unfitted'
   const inNoto = listedMatch === 'unfitted'
-  const matched = inNoto
+  const found = inNoto
     ? await matchFaces(fitting, {
         candidates: notoCandidates(words),
         loaded: new Map(),
@@ -228,7 +242,7 @@ async function matchReading(
         plainWhenUnfitted: true,
       })
     : listedMatch
-  return typeof matched === 'string' ? 'failed' : { matched, inNoto }
+  return typeof found === 'string' ? 'failed' : { ...found, inNoto }
 }
 
 /** Whether a reading's answer looks the same and isn't set in Noto. */
@@ -258,9 +272,10 @@ async function matchFaces(fitting: Fitting, tried: FacesTried): Promise<FacesMat
   if (drawn.length === 0) return 'unloaded'
   fitting.step('fitting')
   const apart = fitFaces(fitting, tried, drawn, faces, true)
-  if (apart.answer === 'unfitted' || apart.answer.same || !apart.spacedWider) return apart.answer
+  if (apart.answer === 'unfitted') return 'unfitted'
+  if (apart.answer.same || !apart.spacedWider) return { matched: apart.answer, faces }
   const touching = fitFaces(fitting, tried, drawn, faces, false).answer
-  return touching !== 'unfitted' && touching.same ? touching : apart.answer
+  return { matched: touching !== 'unfitted' && touching.same ? touching : apart.answer, faces }
 }
 
 /**

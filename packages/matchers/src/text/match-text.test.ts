@@ -77,6 +77,12 @@ const CURVES: readonly TextCurve[] = [
 /** A curve's amount found within this many points of the amount drawn comes back right. */
 const AMOUNT_WITHIN = 10
 
+/** Round trips drawn with a stretch of their words in another colour: a cut-out's last word, and a flat crop's last letter. */
+const TWO_COLOURS = [
+  { id: 'latin-tilted', what: 'its last word', start: 11, end: 15, colour: '#1565C0' },
+  { id: 'latin-plain', what: 'its last letter', start: 20, end: 21, colour: '#E53935' },
+] as const
+
 /** The round trip whose finer fit looks different in Hybrid, so Hybrid gives Light's answer. */
 const LIGHT_KEPT = 'arabic-outlined'
 /** A round trip whose finer fit moves and still looks the same in Hybrid. */
@@ -120,10 +126,11 @@ describe('matchText', () => {
     const piece = pieceOf(id)
     const answer = await matchTwice(piece.pixels, piece.words)
     expect(answer).toMatchObject({ kind: 'layers', approximate: false })
-    const { style, text, rotation } = textLayerOf(answer).props
+    const { style, text, rotation, runs } = textLayerOf(answer).props
     expect(`${style.fontFamily}|${style.fontWeight}|${style.fontStyle}`).toBe(piece.key)
     expect(Math.abs(style.fontSize / piece.size - 1)).toBeLessThan(SIZE_WITHIN)
     expect(text).toBe(piece.words)
+    expect(runs).toEqual([])
     expect(Math.abs(rotation - (piece.rotation ?? 0))).toBeLessThan(1)
     expect(Boolean(style.outline)).toBe(Boolean(piece.outline))
     expect(Math.abs(style.letterSpacing.value - (piece.spacing ?? 0))).toBeLessThan(SPACING_WITHIN)
@@ -169,6 +176,23 @@ describe('matchText', () => {
     expect(found?.shape).toBe(curve.shape)
     expect(Math.abs((found?.amount ?? 0) - curve.amount)).toBeLessThanOrEqual(AMOUNT_WITHIN)
   })
+
+  it.each(TWO_COLOURS)(
+    'gives $id drawn with $what in another colour back with that stretch as a run in its colour',
+    async ({ id, start, end, colour }) => {
+      const drawing = pieceOf(id)
+      const face = parseFontKey(drawing.key)
+      const bytes = fonts.get(drawing.key)
+      if (!face || !bytes) throw new Error(`no face ${drawing.key}`)
+      const drawn = { ...drawing, ...face, runs: [{ start, end, colour }] }
+      const answer = await matchTwice(drawText(ck, drawn, [{ family: face.family, bytes }]), drawing.words, 'hybrid')
+      expect(answer).toMatchObject({ kind: 'layers', approximate: false })
+      const { style, runs } = textLayerOf(answer).props
+      expect(`${style.fontFamily}|${style.fontWeight}|${style.fontStyle}`).toBe(drawing.key)
+      expect(style.color).toBe(`${drawing.colour}FF`)
+      expect(runs).toEqual([{ start, end, style: { color: `${colour}FF` } }])
+    },
+  )
 
   it('gives thin letters that read as hollow back filled when, as drawn, they look the same', async () => {
     const words = 'BOB'

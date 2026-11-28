@@ -1,6 +1,6 @@
 // The text matcher's answer for a piece: one text layer in Dazbee's units, in the piece's pixels,
-// bound to the brand kit where it took the kit's font, colour or text style, and approximate when it
-// doesn't look the same.
+// bound to the brand kit where it took the kit's font, colour or text style, with the runs the piece
+// inks in another colour, and approximate when it doesn't look the same.
 
 import {
   BINDABLE_PROPERTIES,
@@ -12,6 +12,7 @@ import {
 } from '@dazbee/schema'
 
 import { type Placed, textLayerProps, type TextLook } from './draw-text.ts'
+import type { ColourRun } from './run-colours.ts'
 
 /** The most characters of the words a text layer's name takes. */
 const NAME_LENGTH = 40
@@ -23,21 +24,26 @@ export interface TextAnswerOptions {
   bindings?: Bindings
   /** The look of the kit text style the text is bound to, which its layer takes. */
   styleLook?: StyleLook
+  /** The stretches of the text inked in another colour than its own. */
+  runs?: readonly ColourRun[]
 }
 
 /**
  * The answer for words set in `look` at `place`: one text layer named after its first line, with its
- * bindings, the rule's numbers and whether it is approximate. A layer bound to a kit text style holds
- * the style's look as its binding writes it.
+ * bindings, its colour runs, the rule's numbers and whether it is approximate. A layer bound to a kit
+ * text style holds the style's look as its binding writes it.
  */
 export function textAnswer(
   words: string,
   look: TextLook,
   place: Placed,
   scores: LooksSameScores,
-  { approximate, bindings = {}, styleLook }: TextAnswerOptions,
+  { approximate, bindings = {}, styleLook, runs = [] }: TextAnswerOptions,
 ): MatchAnswer {
-  const props: Readonly<Record<string, unknown>> = { ...textLayerProps(words, look, place) }
+  const props: Readonly<Record<string, unknown>> = {
+    ...textLayerProps(words, look, place),
+    ...(runs.length > 0 ? { runs } : {}),
+  }
   const layer = UnplacedLayer.parse({
     type: 'text',
     name: [...(words.split('\n').find((line) => line.trim()) ?? words).trim()].slice(0, NAME_LENGTH).join(''),

@@ -1,76 +1,21 @@
-// Pieces the shape matcher's tests rebuild: graphics drawn by Dazbee's renderer, and pieces of the
-// shape prototype's synthetic set 2 with the prototype's first-pass, ladder or full-pass answers for them.
-
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+// Pieces the shape matcher's tests rebuild: graphics drawn by Dazbee's renderer, and PNGs read as the matchers read
+// pictures.
 
 import type { CanvasKit } from '@dazbee/canvaskit'
 import type { Pixels } from '@dazbee/renderer'
-import { type MatchAnswer, type Paint, type Shape, UnplacedLayer } from '@dazbee/schema'
+import type { Color, DropShadow, Paint, Shape } from '@dazbee/schema'
 
 import type { ShapeLayer, ShapeStroke } from './draw-layers.ts'
 
-/** The prototype's answer for a piece: its decision, why, the fitted rule's numbers and its graphics. */
-export interface PrototypeAnswer {
-  decision: 'shapes' | 'picture'
-  why: string
-  fitted: { ssim: number; far: number; inkMissed: number } | null
-  layers: unknown[]
-  /** The photo guard's score of the graphics, for shapes. */
-  photoScore?: number
-}
-
-/** A piece of synthetic set 2, the brand kit it was matched with, and the prototype's first-pass and ladder answers. */
-export interface PrototypePiece {
-  id: string
-  family: string
-  degradation: string
-  kit: Record<string, `#${string}`>
-  firstPass: PrototypeAnswer
-  /** The shape baseline's answer: the prototype's ladder with the photo guard. */
-  ladder: PrototypeAnswer
-  pixels: Pixels
-}
-
-/** A piece of synthetic set 2, the brand kit it was matched with, and the prototype's full-pass answer. */
-export interface PrototypeFullPiece extends Omit<PrototypePiece, 'firstPass' | 'ladder'> {
-  fullPass: PrototypeAnswer
-}
-
-const FIXTURES = join(import.meta.dirname, '..', '..', 'fixtures', 'shape-prototype')
-const FULL_FIXTURES = join(import.meta.dirname, '..', '..', 'fixtures', 'shape-prototype-full')
-
-/** The prototype's pieces, read with CanvasKit as the matchers read pictures. */
-export function prototypePieces(ck: CanvasKit): PrototypePiece[] {
-  const { pieces } = JSON.parse(readFileSync(join(FIXTURES, 'answers.json'), 'utf8')) as {
-    pieces: Omit<PrototypePiece, 'pixels'>[]
-  }
-  return pieces.map((piece) => ({ ...piece, pixels: decodePng(ck, readFileSync(join(FIXTURES, `${piece.id}.png`))) }))
-}
-
-/** The prototype's pieces with its full-pass answers, read with CanvasKit as the matchers read pictures. */
-export function prototypeFullPieces(ck: CanvasKit): PrototypeFullPiece[] {
-  const { pieces } = JSON.parse(readFileSync(join(FULL_FIXTURES, 'answers.json'), 'utf8')) as {
-    pieces: Omit<PrototypeFullPiece, 'pixels'>[]
-  }
-  return pieces.map((piece) => ({
-    ...piece,
-    pixels: decodePng(ck, readFileSync(join(FULL_FIXTURES, `${piece.id}.png`))),
-  }))
-}
-
-/** The prototype's answer in the matcher's words. */
-export const prototypeAnswer = ({ decision, why, fitted, layers }: PrototypeAnswer): MatchAnswer => {
-  const scores = fitted ? { ssim: fitted.ssim, inkMissed: fitted.inkMissed, far: fitted.far } : undefined
-  if (decision === 'shapes') {
-    if (!scores) throw new Error('shapes without the rule’s numbers')
-    return { kind: 'layers', layers: layers.map((layer) => UnplacedLayer.parse(layer)), scores, approximate: false }
-  }
-  return {
-    kind: 'picture',
-    why: why.startsWith('looks different') ? 'looksDifferent' : why.startsWith('a photo') ? 'photo' : 'tooManyParts',
-    ...(scores ? { scores } : {}),
-  }
+/** A linear gradient that runs level across a graphic, from pale yellow at its left to dark red at its right. */
+export const SUNSET: Paint = {
+  type: 'linear',
+  from: { x: 0, y: 0.5 },
+  to: { x: 1, y: 0.5 },
+  stops: [
+    { offset: 0, color: '#FDE68AFF' },
+    { offset: 1, color: '#B91C1CFF' },
+  ],
 }
 
 /** A PNG's pixels, 8-bit RGBA with straight alpha. */
@@ -108,6 +53,64 @@ export function graphic(
       strokes: paint.stroke ? [paint.stroke] : [],
     },
   }
+}
+
+/** A rectangle of one colour for a test piece, with one radius for its corners, turned by `rotation` degrees. */
+export const rectangle = (
+  box: { x: number; y: number; width: number; height: number; rotation?: number },
+  color: Color,
+  cornerRadius = 0,
+): ShapeLayer => graphic({ kind: 'rect', cornerRadius }, box, { fill: { type: 'solid', color } })
+
+/** An ellipse of one colour for a test piece, turned by `rotation` degrees. */
+export const ellipse = (
+  box: { x: number; y: number; width: number; height: number; rotation?: number },
+  color: Color,
+): ShapeLayer => graphic({ kind: 'ellipse' }, box, { fill: { type: 'solid', color } })
+
+/** A shape drawn by a stroke of one colour inside its edge, with a fill of one colour under it when one is given. */
+export const stroked = (
+  shape: Shape,
+  box: { x: number; y: number; width: number; height: number; rotation?: number },
+  color: Color,
+  width: number,
+  fill?: Color,
+): ShapeLayer =>
+  graphic(shape, box, {
+    ...(fill ? { fill: { type: 'solid', color: fill } } : {}),
+    stroke: { paint: { type: 'solid', color }, width, align: 'inside' },
+  })
+
+/** A graphic with a drop shadow, or a glow when the shadow has no offset. */
+export const shadowed = (layer: ShapeLayer, shadow: Omit<DropShadow, 'type' | 'spread'>): ShapeLayer => ({
+  ...layer,
+  props: { ...layer.props, effects: [{ type: 'dropShadow', spread: 0, ...shadow }] },
+})
+
+/** A picture of noise, 90 px a side: 2025 squares of 2 px, each of its own colour. */
+export const noise = (): ShapeLayer[] => {
+  let seed = 12345
+  const channel = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0
+    return ((seed >>> 8) & 255).toString(16).padStart(2, '0')
+  }
+  return Array.from({ length: 45 * 45 }, (_, i) =>
+    rectangle(
+      { x: (i % 45) * 2, y: Math.floor(i / 45) * 2, width: 2, height: 2 },
+      `#${channel()}${channel()}${channel()}FF`,
+    ),
+  )
+}
+
+/** What other layers hide of a piece of `width` × `height` pixels, one byte a pixel: the pixels of a box of it. */
+export const hiding = (
+  box: { x: number; y: number; width: number; height: number },
+  width: number,
+  height: number,
+): Uint8Array => {
+  const hidden = new Uint8Array(width * height)
+  for (let y = box.y; y < box.y + box.height; y++) hidden.fill(1, y * width + box.x, y * width + box.x + box.width)
+  return hidden
 }
 
 /** A free shape of 14 corners at varied reach, in a box round its centre: one shape of a painted scene. */

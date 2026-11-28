@@ -529,7 +529,7 @@ What a record sits in: a frame's, a section's or a connector's page, or a layer'
 
 **Change**:
 One write to a design as the sync server takes it: create a record, set or unset one value, or delete a record with everything it holds.
-_Avoid_: Operation, update, patch
+_Avoid_: Operation, update, patch (that is the shape matcher's area of one colour)
 
 **Value**:
 What one change sets: a meta field, a field of a page, frame or layer, one key of a layer's `props`, or one of its bindings. A text layer's text and runs are one value. Where two tabs set one value, the change the server orders later wins.
@@ -838,12 +838,20 @@ One part of a picture that a matcher rebuilds as layers: its pixels, its place o
 _Avoid_: Block (that is the renderer's laid-out paragraph), region, cut-out (a layering kind for a cut-out photo)
 
 **Matcher**:
-What rebuilds a piece as editable layers by drawing candidates with Dazbee's renderer and keeping the one that looks the same. The **text matcher** finds a text piece's font, size, colour and fit and always makes it a text: when no candidate looks the same it gives the closest, and when no font draws its characters it sets it in the Noto Dazbee ships for its script; such a text is **approximate**. The **shape matcher** makes a piece of shapes into graphics; a shape piece no candidate rebuilds well stays a picture, with why.
+What rebuilds a piece as editable layers, which are drawn with Dazbee's renderer and kept when they look the same. The **text matcher** finds a text piece's font, size, colour and fit by drawing candidates, and always makes it a text: when no candidate looks the same it gives the closest, and when no font draws its characters it sets it in the Noto Dazbee ships for its script; such a text is **approximate**. The **shape matcher** cuts a piece of shapes into patches and makes each a graphic: a rectangle, an ellipse or a line fitted to its outline, an outline stroke, a regular polygon or a star, else a traced path, with a drop shadow fitted to a soft fringe the graphics leave uncovered. A shape piece whose graphics fail looks the same or the detail check stays a picture, with why, and so does a photo or shaded art, which the cut itself turns away: it has too many colours, areas or patches, or too much that no flat colour explains.
 _Avoid_: Detector, recogniser, converter, vectoriser (for the matcher as a whole)
 
+**Patch**:
+An area of one flat colour that the shape matcher cuts a shape piece into, with its outlines placed between pixels. The bands of one gradient are one patch, and the soft fringe of a shadow or glow is none.
+_Avoid_: Region, segment, part (a planned part is the layer plan's), blob (that is the detail check's)
+
 **Looks the same**:
-The rule fitted to the owner's blind votes on pairs of a piece and its rebuild; text and shapes each have their own bars. Shapes must pass it to replace their piece; a text that fails it is still given, approximate.
+The rule fitted to the owner's blind votes on pairs of a piece and its rebuild; text and shapes each have their own bars, and shapes' is the share of far pixels. Shapes must pass it and the detail check to replace their piece; a text that fails it is still given, approximate.
 _Avoid_: Match score, similarity, accuracy (that is how often a matcher passes)
+
+**Detail check**:
+The shape matcher's closer look at graphics that pass looks the same: the piece and its rebuild at 192 to 512 px on the long side, a small piece enlarged, where an edge a pixel off or softer is the same edge. A blob of difference of more than a dozen pixels, three pixels thick somewhere (a part missing, a hole filled), or a halo (a soft shadow or glow missing) keeps the piece a picture, however small a share of the piece it is.
+_Avoid_: Fine check, second rule, pixel diff
 
 **Light**:
 The text matcher's quicker setting: the brand kit's fonts and a short list of fonts by their font fingerprints, each fitted and drawn, and the closest that looks the same kept, a kit font first when it fits nearly as well; else the closest, approximate. Its letters are never spaced so tight they run into each other, unless only that looks the same, as where the picture's own letters do.

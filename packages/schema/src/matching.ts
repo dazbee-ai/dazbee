@@ -79,8 +79,14 @@ export type MatchKit = z.infer<typeof MatchKit>
 const matchJobFields = {
   /** The picture as it is drawn on the frame: a PNG, base64 in JSON. */
   picture: z.base64(),
-  /** The colours the picture is seen on, for text; left out for shapes. */
+  /** The colours the picture is seen on: a text is judged over each, a see-through shape over the first. */
   backgrounds: Rgb.array().min(1).max(MAX_MATCH_BACKGROUNDS).optional(),
+  /**
+   * What other layers of the frame hide of the picture: one bit a pixel, row by row from its top left, the first
+   * pixel of a byte in its highest bit, set where the picture is covered; base64 in JSON. A shape is neither rebuilt
+   * from what is hidden nor judged by it. Left out when nothing is known to cover the picture.
+   */
+  hidden: z.base64().optional(),
   pieces: Piece.array().min(1).max(MAX_MATCH_PIECES),
   kit: MatchKit,
   setting: MatchSetting.default('hybrid'),
@@ -94,20 +100,25 @@ const matchJobFields = {
 export const MatchJob = z.object(matchJobFields).superRefine(pictureHoldsPieces, { when: wellFormed })
 export type MatchJob = z.infer<typeof MatchJob>
 
-/** The looks-the-same rule's numbers for a rebuild; `inkColour`, the colour guard's ΔE00, for text only. */
+/**
+ * The looks-the-same rule's numbers for a rebuild. Shapes are judged by `far` alone; `ssim`, `inkMissed` and
+ * `inkColour`, the colour guard's ΔE00, are text's.
+ */
 export const LooksSameScores = z.object({
-  ssim: z.number().min(-1).max(1),
-  inkMissed: z.number().min(0).max(1),
+  ssim: z.number().min(-1).max(1).optional(),
+  inkMissed: z.number().min(0).max(1).optional(),
   far: z.number().min(0).max(1),
   inkColour: z.number().min(0).optional(),
 })
 export type LooksSameScores = z.infer<typeof LooksSameScores>
 
 /**
- * Why a piece stays a picture: its shapes' rebuild doesn't look the same, it would take too many
- * layers, it is a photo or a painted scene (its shapes leave its shading and texture unexplained, or
- * are many free paths), it is too big, the matcher failed (for text, also when the piece has no ink to
- * read), or this browser can't run the matchers. A text piece the matcher reads always becomes text.
+ * Why a piece stays a picture: its shapes' rebuild doesn't look the same (so also a piece with next to
+ * nothing covered, which no shape rebuilds), it has too many parts (more colours, areas or patches than
+ * a flat drawing has, a pattern too fine for its size, or more graphics than an answer holds), it is a
+ * photo or shaded art (flat colours leave too much of it unexplained), it is too big, the matcher
+ * failed (for text, also when the piece has no ink to read), or this browser can't run the matchers. A
+ * text piece the matcher reads always becomes text.
  */
 export const PictureWhy = z.enum(['looksDifferent', 'tooManyParts', 'photo', 'tooBig', 'failed', 'unsupported'])
 export type PictureWhy = z.infer<typeof PictureWhy>
@@ -135,8 +146,11 @@ function wellFormed(payload: { issues: readonly unknown[] }) {
   return payload.issues.length === 0
 }
 
-/** Refuses a picture that isn't a PNG small enough, and a piece whose rect leaves the picture. */
-function pictureHoldsPieces(job: { picture: string; pieces: Piece[] }, ctx: z.RefinementCtx) {
+/** Refuses a picture that isn't a PNG small enough, a piece whose rect leaves the picture, and a hidden mask of another size. */
+function pictureHoldsPieces(
+  job: { picture: string; pieces: Piece[]; hidden?: string | undefined },
+  ctx: z.RefinementCtx,
+) {
   if (base64Bytes(job.picture) > MAX_MATCH_PICTURE_BYTES) {
     ctx.addIssue({ code: 'custom', path: ['picture'], message: `the picture is over ${MAX_MATCH_PICTURE_BYTES} bytes` })
     return
@@ -159,6 +173,9 @@ function pictureHoldsPieces(job: { picture: string; pieces: Piece[] }, ctx: z.Re
       ctx.addIssue({ code: 'custom', path: ['pieces', i, 'rect'], message: 'a piece lies inside the picture' })
     }
   })
+  if (job.hidden !== undefined && base64Bytes(job.hidden) !== Math.ceil((header.width * header.height) / 8)) {
+    ctx.addIssue({ code: 'custom', path: ['hidden'], message: 'what is hidden holds one bit a pixel of the picture' })
+  }
 }
 
 /** How many bytes padded base64 decodes to, which its length and padding fix exactly. */

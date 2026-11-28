@@ -1,17 +1,13 @@
-// Gradients: a part's fill as a linear or radial gradient, kept where drawing it so lowers the part's
+// Gradients: a patch's fill as a linear or radial gradient, kept where drawing it so lowers the patch's
 // mean ΔE00 by 0.75 or more. Linear: least squares of each channel on x and y gives the direction,
 // snapped to a multiple of 45° within 4°. Radial: the centre is searched on a grid. Either way the
 // colours along it are binned and fitted with two stops, or three where a middle stop earns its
 // place, in sRGB, where the renderer blends them.
 
-import type { CanvasKit } from '@dazbee/canvaskit'
 import type { LinearPaint, RadialPaint } from '@dazbee/schema'
 
 import { ciede2000, srgbToLab } from '../../looks-same/colour.ts'
-import { drawGraphics, type ShapeLayer } from '../draw-layers.ts'
 import { hexColour, type SrgbFloat } from '../parts/colour.ts'
-import { type FloatPicture, toFloatPicture } from '../parts/float-picture.ts'
-import type { StackedPart } from '../parts/stacking.ts'
 
 /** A gradient fitted to pixels, in piece pixels: radial ones centred on `from`, reaching to `to`. */
 export interface GradientFit {
@@ -23,7 +19,7 @@ export interface GradientFit {
   error: number
 }
 
-/** An inner pixel of a part: its centre in the fitting picture and its colour. */
+/** An inner pixel of a patch: its centre in the fitting picture and its colour. */
 export interface InnerPixel {
   x: number
   y: number
@@ -38,21 +34,10 @@ interface Stops {
   error: number
 }
 
-/** A part's fill is tried as a gradient when its inner pixels' mean ΔE00 to its colour is over this. */
-export const GRADIENT_SPREAD = 2.5
-
-/** Coverage from which a pixel is inside its part. */
-const INSIDE = 0.95
-/** Inner pixels used, about. */
-const PIXELS_USED = 6000
 /** Fewer inner pixels than this hold no gradient. */
 const FEWEST_PIXELS = 30
 /** A radial gradient must be this much closer, in ΔE00, than a linear one to be picked. */
 const RADIAL_BY = 0.4
-/** A part with an alpha under this has a see-through fill. */
-const SEE_THROUGH = 0.97
-/** A gradient is kept when it lowers the part's mean ΔE00 by this much. */
-const KEPT_BY = 0.75
 /** A third stop must lower the error by this much. */
 const THIRD_STOP_BY = 0.6
 /** Bins the colours along a gradient are averaged in. */
@@ -61,27 +46,6 @@ const BINS = 24
 const MIDDLES = [0.25, 0.33, 0.4, 0.5, 0.6, 0.67, 0.75] as const
 /** A linear gradient's angle within this many degrees of a multiple of 45° is snapped to it. */
 const SNAP_DEGREES = 4
-
-/** A part's inner pixels (coverage 0.95 or more), every so many so about 6,000 are kept. */
-export function innerPixels(picture: FloatPicture, mask: Float32Array): InnerPixel[] {
-  let count = 0
-  for (let i = 0; i < mask.length; i++) if ((mask[i] ?? 0) >= INSIDE) count++
-  const step = Math.max(1, Math.floor(count / PIXELS_USED))
-  const pixels: InnerPixel[] = []
-  let k = 0
-  for (let i = 0; i < mask.length; i++) {
-    if ((mask[i] ?? 0) < INSIDE) continue
-    if (k++ % step) continue
-    const x = i % picture.width
-    const { data } = picture
-    pixels.push({
-      x: x + 0.5,
-      y: (i - x) / picture.width + 0.5,
-      rgb: [data[i * 4] ?? 0, data[i * 4 + 1] ?? 0, data[i * 4 + 2] ?? 0],
-    })
-  }
-  return pixels
-}
 
 /** The better of a linear and a radial gradient for these pixels, in piece pixels; `scale` fitting pixels to a piece pixel. */
 export function fitGradient(pixels: readonly InnerPixel[], scale: number): GradientFit | null {
@@ -93,32 +57,6 @@ export function fitGradient(pixels: readonly InnerPixel[], scale: number): Gradi
   // A linear gradient is the simpler pick, so a radial one must be clearly closer.
   const pick = linear && radial && radial.error > linear.error - RADIAL_BY ? linear : best
   return { ...pick, from: [pick.from[0] / scale, pick.from[1] / scale], to: [pick.to[0] / scale, pick.to[1] / scale] }
-}
-
-/**
- * The graphic with its part's fill as a gradient, when drawing it so lowers the part's mean ΔE00 by
- * 0.75 or more; null when not, and for a turned graphic.
- */
-export function withGradient(
-  ck: CanvasKit,
-  fitted: FloatPicture,
-  part: StackedPart,
-  layer: ShapeLayer,
-  scale: number,
-  pieceWidth: number,
-  pieceHeight: number,
-): ShapeLayer | null {
-  const gradient = fitGradient(innerPixels(fitted, part.mask), scale)
-  if (!gradient) return null
-  const { props } = layer
-  if (props.rotation !== 0) return null
-  const paint = gradientPaint(gradient, props)
-  if (part.alpha < SEE_THROUGH) paint.opacity = Math.round(part.alpha * 1000) / 1000
-  const graded: ShapeLayer = { ...layer, props: { ...layer.props, fills: [paint] } }
-  const error = (drawn: ShapeLayer) =>
-    partDeltaE(fitted, toFloatPicture(drawGraphics(ck, [drawn], pieceWidth, pieceHeight, scale)), part.mask)
-  const flat = error(layer)
-  return error(graded) <= flat - KEPT_BY ? graded : null
 }
 
 /** The linear gradient along the direction that explains most of the change, over the three channels. */
@@ -314,7 +252,7 @@ function clamp(v: number): number {
 }
 
 /** A gradient as a paint in the unit box of a graphic's box: a linear one running along the pixels' direction whatever the box's aspect. */
-function gradientPaint(
+export function gradientPaint(
   gradient: GradientFit,
   box: { x: number; y: number; width: number; height: number },
 ): LinearPaint | RadialPaint {
@@ -345,19 +283,4 @@ function gradientPaint(
 /** A point rounded to four decimals. */
 function rounded(p: { x: number; y: number }): { x: number; y: number } {
   return { x: Math.round(p.x * 10000) / 10000, y: Math.round(p.y * 10000) / 10000 }
-}
-
-/** The mean ΔE00 between two pictures over a part's inner pixels, every so many so about 20,000 are read. */
-function partDeltaE(a: FloatPicture, b: FloatPicture, mask: Float32Array): number {
-  let total = 0
-  let n = 0
-  const step = Math.max(1, Math.floor(mask.length / 20000))
-  for (let i = 0; i < mask.length; i += step) {
-    if ((mask[i] ?? 0) < INSIDE) continue
-    const labA = srgbToLab(a.data[i * 4] ?? 0, a.data[i * 4 + 1] ?? 0, a.data[i * 4 + 2] ?? 0)
-    const labB = srgbToLab(b.data[i * 4] ?? 0, b.data[i * 4 + 1] ?? 0, b.data[i * 4 + 2] ?? 0)
-    total += ciede2000(labA, labB)
-    n++
-  }
-  return n ? total / n : 0
 }

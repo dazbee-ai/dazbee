@@ -1,13 +1,13 @@
-// Measures the shape matcher's goals (the matchers spec's goals table) with `matchShapesOf`, and checks its
-// answers against the shape baseline piece by piece:
+// Measures the shape matcher on pieces kept outside the repo, beside the shape baseline's answers:
 //   node scripts/measure-shapes.ts measure <baseline.json> [--table]
 //   node scripts/measure-shapes.ts repeat <baseline.json> <runs> [--coupon-only]
 // `TEST_ADS_DIR` names the test ads' folder (a folder per ad with blocks.json and its block crops) and `SYNTH_DIR`
 // synthetic set 2's (index.json and <id>.png); both stay outside the repo, and so does the baseline: the shape
-// prototype's ladder run with the fitted rule, one answer a piece, which names the dashed coupon's piece.
+// prototype's answers under the fitted rule, one a piece, which names the dashed coupon's piece.
 // - measure: the 47 held-out shape pieces and the 25 held-out photo and cutout pieces sent as shapes (every third ad
-//   in name order, from the third), synthetic set 2 (312) and the dashed coupon. Prints each answer that differs
-//   from the baseline's, the goals' counts, and with --table every piece's answer. Test-ad pieces are named
+//   in name order, from the third), synthetic set 2 (312) and the dashed coupon. Prints each piece the matcher and
+//   the baseline decide differently, the counts of each, and with --table every piece's answer. A count says how
+//   many pieces were made shapes, never that they look the same: that is judged by eye. Test-ad pieces are named
 //   `adNN/BB`, block BB of the NNth ad in name order, so the output names no test ad.
 // - repeat: the held-out pieces and the coupon (or the coupon alone) answered in `runs` fresh processes, one after
 //   another, while a process on every core spins; prints whether every run gave the same answers.
@@ -17,19 +17,19 @@ import { spawn, spawnSync } from 'node:child_process'
 import { readdirSync, readFileSync } from 'node:fs'
 import { availableParallelism } from 'node:os'
 import { join } from 'node:path'
-import { isDeepStrictEqual } from 'node:util'
 
 import type { CanvasKit } from '@dazbee/canvaskit'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import type { MatchAnswer, MatchKit } from '@dazbee/schema'
 
 import { matchShapesOf } from '../src/shape/match-shapes.ts'
-import { photoScore } from '../src/shape/photo-guard.ts'
-import { decodePng, type PrototypeAnswer, prototypeAnswer } from '../src/shape/test-pieces.ts'
+import { decodePng } from '../src/shape/test-pieces.ts'
 
-/** The baseline's answer for a piece, as the prototype wrote it, with the photo guard's score of its graphics. */
-interface BaselineAnswer extends PrototypeAnswer {
-  photoP: number | null
+/** The baseline's answer for a piece, as the prototype wrote it. */
+interface BaselineAnswer {
+  decision: 'shapes' | 'picture'
+  why: string
+  layers: unknown[]
 }
 
 /** A piece measured: where its pixels are, what it is, the kit it is matched with and the baseline's answer. */
@@ -85,7 +85,7 @@ else
     pieces.filter((piece) => piece.set !== 'synth2' && (!flags.has('--coupon-only') || piece.set === 'coupon')),
   )
 
-/** Answers every piece, compares each with the baseline and prints the goals' counts. */
+/** Answers every piece, prints each the baseline decides differently, and the counts of both. */
 async function measure(all: readonly MeasuredPiece[]) {
   const ck = await loadCanvasKit()
   const rows: { piece: MeasuredPiece; answer: MatchAnswer; ms: number }[] = []
@@ -95,9 +95,9 @@ async function measure(all: readonly MeasuredPiece[]) {
     const answer = matchShapesOf(ck, read(ck, piece.path), piece.colors)
     const ms = performance.now() - started
     rows.push({ piece, answer, ms })
-    const problems = differences(ck, piece, answer)
-    if (problems.length) console.log(`DIFF ${piece.name}: ${problems.join('; ')}`)
-    else same++
+    if ((answer.kind === 'layers') === (piece.baseline.decision === 'shapes')) same++
+    else
+      console.log(`DIFF ${piece.name}: ${summary(answer)}, baseline ${piece.baseline.decision} (${piece.baseline.why})`)
   }
   const madeShapes = (rs: typeof rows) => rs.filter((r) => r.answer.kind === 'layers').length
   const of = (set: MeasuredPiece['set'], kinds: readonly string[]) =>
@@ -109,12 +109,12 @@ async function measure(all: readonly MeasuredPiece[]) {
   const coupon = rows.find((r) => r.piece.set === 'coupon')
   const baselineShapes = (rs: typeof rows) => rs.filter((r) => r.piece.baseline.decision === 'shapes').length
   const times = rows.map((r) => r.ms).sort((a, b) => a - b)
-  console.log(`\nSame as the baseline: ${same} of ${rows.length}`)
+  console.log(`\nDecided as the baseline: ${same} of ${rows.length}`)
   console.log(
-    `Held-out shape pieces that look the same: ${madeShapes(heldOutShapes)} of ${heldOutShapes.length} (baseline ${baselineShapes(heldOutShapes)})`,
+    `Held-out shape pieces made shapes: ${madeShapes(heldOutShapes)} of ${heldOutShapes.length} (baseline ${baselineShapes(heldOutShapes)})`,
   )
   console.log(
-    `Synthetic set 2, should be shapes and look the same: ${madeShapes(synthShapes)} of ${synthShapes.length} (baseline ${baselineShapes(synthShapes)})`,
+    `Synthetic set 2, should be shapes and made shapes: ${madeShapes(synthShapes)} of ${synthShapes.length} (baseline ${baselineShapes(synthShapes)})`,
   )
   console.log(
     `Synthetic set 2, pictures made shapes: ${madeShapes(synthPictures)} of ${synthPictures.length} (baseline ${baselineShapes(synthPictures)})`,
@@ -229,24 +229,6 @@ function measuredPieces(ads: string, synth: string, baseline: { pieces: Baseline
   if (blocks.length !== counted)
     throw new Error(`the held-out ads have ${blocks.length} pieces, the baseline ${counted}`)
   return chosen
-}
-
-/** How the answer differs from the baseline's: decision, why, the rule's numbers, every layer and the photo score. */
-function differences(ck: CanvasKit, piece: MeasuredPiece, answer: MatchAnswer): string[] {
-  const want = piece.baseline
-  const problems: string[] = []
-  const wanted = prototypeAnswer(want)
-  if (answer.kind !== wanted.kind) return [`${summary(answer)}, baseline ${want.decision} (${want.why})`]
-  if (!isDeepStrictEqual(answer, wanted))
-    problems.push(
-      `${summary(answer)} ${JSON.stringify(answer.scores)}, baseline ${summary(wanted)} ${JSON.stringify(wanted.scores)}`,
-    )
-  if (answer.kind === 'layers') {
-    const score = photoScore(ck, read(ck, piece.path), answer.layers)
-    if (want.photoP === null || Math.abs(score - want.photoP) > 1e-9)
-      problems.push(`photo score ${score}, baseline ${want.photoP}`)
-  }
-  return problems
 }
 
 /** An answer in a few words: shapes and how many, or picture and why. */

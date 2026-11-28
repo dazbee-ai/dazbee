@@ -108,19 +108,25 @@ export function inkBox(ink: Ink, threshold = 0.5, within?: Box): Box | null {
   const y0 = within?.y ?? 0
   const x1 = within ? within.x + within.w : ink.width
   const y1 = within ? within.y + within.h : ink.height
-  let minX = Infinity
-  let minY = Infinity
-  let maxX = -1
-  let maxY = -1
-  for (let y = y0; y < y1; y++)
-    for (let x = x0; x < x1; x++)
-      if ((ink.data[y * ink.width + x] ?? 0) > threshold) {
-        if (x < minX) minX = x
-        if (x > maxX) maxX = x
-        if (y < minY) minY = y
-        if (y > maxY) maxY = y
-      }
-  if (maxX < 0) return null
+  const { data, width } = ink
+  // Read from each side inwards to the first ink, so the pixels inside the box aren't all read.
+  const rowInked = (y: number) => {
+    for (let x = x0; x < x1; x++) if ((data[y * width + x] ?? 0) > threshold) return true
+    return false
+  }
+  let minY = y0
+  while (minY < y1 && !rowInked(minY)) minY++
+  if (minY >= y1) return null
+  let maxY = y1 - 1
+  while (!rowInked(maxY)) maxY--
+  const columnInked = (x: number) => {
+    for (let y = minY; y <= maxY; y++) if ((data[y * width + x] ?? 0) > threshold) return true
+    return false
+  }
+  let minX = x0
+  while (!columnInked(minX)) minX++
+  let maxX = x1 - 1
+  while (!columnInked(maxX)) maxX--
   return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 }
 }
 

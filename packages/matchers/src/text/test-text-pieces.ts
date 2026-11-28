@@ -42,6 +42,8 @@ export interface DrawnText {
   spacing?: number
   /** Its lines bent along a curve. */
   curve?: TextCurve
+  /** Stretches of the words, in UTF-16 units, drawn in another colour. */
+  runs?: { start: number; end: number; colour: `#${string}` }[]
 }
 
 /** A piece of the shortlist's test: the face it is drawn in, its words and its pixels. */
@@ -141,6 +143,9 @@ export function drawText(
             ...(text.outline ? { outline: { ...text.outline, color: `${text.outline.color}FF` } } : {}),
           },
           ...(text.curve ? { curve: text.curve } : {}),
+          ...(text.runs
+            ? { runs: text.runs.map(({ start, end, colour }) => ({ start, end, style: { color: `${colour}FF` } })) }
+            : {}),
         },
       },
     },

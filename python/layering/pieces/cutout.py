@@ -14,13 +14,20 @@ layers show.
      fits the area best, so a subline inside a headline's box stays the subline;
    - an area that reaches into other boxes is thinned until it falls apart (two texts touching, a card touching a
      person). A bit of it leaves the area's part only when it fits another part's box better (a whole card) or
-     lies outside the part's own box, so a turned headline whose letters dip into a subline's box is never cut
-     through its letters. An area that never falls apart is cut only where one box alone holds a fair share.
+     lies outside the part's own box and inside another's, the padding around that box not counted. So a turned
+     headline whose letters dip into a subline's box is never cut through its letters, and the tip of a descender
+     stays with its letter. An area that never falls apart is cut only where one box alone holds a fair share;
+   - turned text in several lines (a tilted sticker): the upright boxes of turned lines hold each other's
+     letters. So where the boxes of text parts of one layer overlap and their letters are turned the same way,
+     the letters are split into their lines at that angle, and each line goes whole to the part whose box holds
+     most of it. A line that two of the parts share (two texts side by side) stays as the boxes cut it.
 3. Soft pixels (shadows, glows, smoothed edges) follow the solid area they are joined to through alpha that can be
    seen; a soft area between two parts is cut where the two meet. A faint area joined to nothing goes to the part
    whose box holds it (a thin grey line); other loose bits (a shadow under a shoe) join the nearest piece when they
-   lie within its part's padded box; the rest is the layer's piece of no part, of kind "other". Alpha too faint to
-   see joins the nearest piece last, so it can't join a faint area to its neighbour.
+   lie within its part's padded box, and small bits wherever they are. A text takes a small bit only from right
+   beside it, so the small print on a bottle in the photo, drawn in the text's layer, joins no headline. The rest
+   is the layer's piece of no part, of kind "other". Alpha too faint to see joins what is nearest last, a piece
+   or the piece of no part, so it can't join a faint area to its neighbour.
 4. Copies. A part drawn twice: where an area of one layer repeats, roughly, what the part's own layer has in its
    box (a card drawn again against the person in front of it), that bit is cut off along the strongest colour edge
    and is the part's piece. A second piece of a part that is almost hidden behind its first is drawn into the
@@ -32,6 +39,8 @@ Every piece but the backdrop also gets its turned box, measured from its pixels.
 
 The pixel sizes here are pixels of the working size the split model drew the layers at, whichever that is.
 """
+
+from itertools import combinations
 
 import cv2
 import numpy as np
@@ -68,7 +77,8 @@ CLAIM_OVERLAP = 0.5
 PAD_OF_LAYER = 0.02
 PAD_OF_BOX = 0.10
 SHADOW_PAD_OF_LAYER = 0.04
-# A loose bit whose alpha adds up to less than this joins the nearest piece wherever it is.
+# A loose bit whose alpha adds up to less than this joins the nearest piece wherever it is; a text, which is read
+# by its letters, takes it only from within a box's padding of itself.
 SMALL_BIT = 200
 # Alpha below this is noise that can't be seen: it changes a pixel by at most 2 of 255. It is dropped from the
 # pieces of the TRIMMED kinds, so their boxes hug what can be seen, a faint shadow or glow included; cut-outs and
@@ -86,6 +96,13 @@ COPY_SHARE = 0.5
 ANGLE_SNAP = 1.0
 # So is one whose turned box isn't at least a tenth smaller than its upright box.
 ANGLE_GAIN = 0.9
+# Two texts are turned the same way when their angles are within this many degrees of each other.
+SAME_TURN = 3.0
+# A text's angle among other texts is measured on about this many of its solid pixels at most.
+TURN_SAMPLE = 4000
+# Turned text falls apart into lines at the rows, across its angle, that hold at most this share of the solid
+# pixels of the fullest row on either side of them.
+LINE_GAP = 0.15
 
 
 def cut_layers(parts: list[dict], layers: list[np.ndarray], size: tuple[int, int]) -> list[dict]:
@@ -182,18 +199,21 @@ def cut_layers(parts: list[dict], layers: list[np.ndarray], size: tuple[int, int
         winner = max([part for share, part in held if share >= best - TIE], key=lambda part: overlap(bounds, part))
         return best, winner, [part for _, part in held]
 
-    def held_by(area, rows, cols, part):
-        """The share of the area that the part's padded box holds."""
-        return (masks[part["id"]][rows, cols] & area).sum() / area.sum()
+    def held_by(area, rows, cols, part, padded=True):
+        """The share of the area that the part's box holds: its padded box, or the box itself."""
+        box = masks[part["id"]][rows, cols] if padded else in_box(part, 0, rows, cols)
+        return (box & area).sum() / area.sum()
 
     def cut_area(area, rows, cols, winner, others):
         """The labels of a solid area that reaches into the boxes of `others`, or None when it is all `winner`'s.
 
         The area is thinned until it falls apart (letters joined by an outline, a card touching a person). A bit
         goes to another part only when its bounds fit that part's box better than the winner's (a whole card), or
-        when it lies outside the winner's box and in the other's. So bits of a turned headline that dip into a
-        subline's box stay with the headline. An area that never falls apart (two shapes grown together) is cut by
-        the pixels that one box alone holds, when two boxes each hold a fair share.
+        when it lies outside the winner's box and in the other's, the padding around the other's not counted. So
+        bits of a turned headline that dip into a subline's box stay with the headline, and so does the tip of a
+        descender that reaches no further than the padding around the subline's box. An area that never falls apart
+        (two shapes grown together) is cut by the pixels that one box alone holds, when two boxes each hold a fair
+        share.
         """
         for thinning in (1, 2, 3):
             bits, bit_count = ndimage.label(
@@ -213,7 +233,7 @@ def cut_layers(parts: list[dict], layers: list[np.ndarray], size: tuple[int, int
                     seeds[bit] = label_of[winner["id"]]
                 else:
                     share, part, _ = best_of(bit, rows, cols, others)
-                    if part is not None and share >= HOLD_MIN:
+                    if part is not None and share >= HOLD_MIN and held_by(bit, rows, cols, part, False) >= HOLD_MIN:
                         seeds[bit] = label_of[part["id"]]
             if len(np.unique(seeds[seeds > 0])) >= 2:
                 return watershed(np.zeros(area.shape, np.float32), seeds, mask=area)
@@ -268,6 +288,39 @@ def cut_layers(parts: list[dict], layers: list[np.ndarray], size: tuple[int, int
             ]
             cut = cut_area(area, rows, cols, winner, others) if others else None
             labels[rows, cols][area] = cut[area] if cut is not None else label_of[winner["id"]]
+        # Turned text in several lines: the letters of the parts turned together are split into their lines, and
+        # each line goes whole to the part whose box holds most of it. A line that holds the middle of two of the
+        # parts' boxes is two texts side by side, and stays as the boxes cut it.
+        for group, angle in turned_together([part for part in here if part["kind"] == "text"], solid > 0):
+            theirs = np.isin(labels, [label_of[part["id"]] for part in group])
+            if not theirs.any():
+                continue
+            rows, cols = window(theirs)
+            areas, marked, theirs = solid[rows, cols], labels[rows, cols], theirs[rows, cols]
+            # The solid areas that are these parts' alone: their letters.
+            letters = np.setdiff1d(areas[theirs], areas[(marked > 0) & ~theirs])
+            ys, xs = np.nonzero(np.isin(areas, letters))
+            if len(xs) == 0:
+                continue
+            turn = np.deg2rad(angle)
+            across = -(xs + cols.start) * np.sin(turn) + (ys + rows.start) * np.cos(turn)
+            top = across.min()
+            ends = line_ends(np.bincount((across - top).astype(np.int64)))
+            line_of = np.searchsorted(ends, ndimage.mean(across - top, areas[ys, xs], letters), side="right")
+            middles = [
+                (part["box"][1] + part["box"][3]) / 2 * np.cos(turn)
+                - (part["box"][0] + part["box"][2]) / 2 * np.sin(turn)
+                - top
+                for part in group
+            ]
+            shared = np.bincount(np.searchsorted(ends, middles, side="right"), minlength=len(ends) + 1) > 1
+            for line in np.unique(line_of):
+                if shared[line]:
+                    continue
+                line_letters = np.isin(areas, letters[line_of == line])
+                _, winner, _ = best_of(line_letters, rows, cols, group)
+                if winner is not None:
+                    marked[line_letters] = label_of[winner["id"]]
         # A part of a layer behind this one, grown into an area of this layer (a card drawn against the person in
         # front of it): where this layer repeats, roughly, what the part's own layer has inside its box, that bit
         # is the part. Those pixels seed it, the rest of the area outside the part's box seeds the area's own
@@ -297,7 +350,8 @@ def cut_layers(parts: list[dict], layers: list[np.ndarray], size: tuple[int, int
         seen = alpha > ALPHA_FLOOR
         labels = watershed(np.zeros((height, width), np.float32), labels * seen, mask=seen) if labels.any() else labels
         # Areas joined to no part: the part whose box holds them, else the nearest piece when they lie within its
-        # part's padded box, and small bits wherever they are; the rest is the layer's piece of no part.
+        # part's padded box, and small bits wherever they are, but a text takes a small bit only from right beside
+        # it; the rest is the layer's piece of no part.
         loose = seen & (labels == 0)
         no_part = np.zeros((height, width), bool)
         if loose.any() and labels.any():
@@ -318,17 +372,21 @@ def cut_layers(parts: list[dict], layers: list[np.ndarray], size: tuple[int, int
                     continue
                 label = nearest[pixel]
                 part = front_parts[label - 1]
-                if weight < SMALL_BIT or in_box(part, layer_pad(part), rows, cols)[bit].mean() > 0.5:
+                small = weight < SMALL_BIT and (part["kind"] != "text" or distance[pixel] <= box_pad)
+                if small or in_box(part, layer_pad(part), rows, cols)[bit].mean() > 0.5:
                     labels[rows, cols][bit] = label
                 else:
                     no_part[rows, cols] |= bit
         elif loose.any():
             no_part = loose
-        # Alpha too faint to see joins the nearest piece.
+        # Alpha too faint to see joins what is nearest: a piece, or the piece of no part.
         faint = (alpha > 0) & (labels == 0) & ~no_part
         if faint.any() and labels.any():
-            _, (near_y, near_x) = ndimage.distance_transform_edt(labels == 0, return_indices=True)
-            labels[faint] = labels[near_y[faint], near_x[faint]]
+            taken = np.where(no_part, -1, labels)
+            _, (near_y, near_x) = ndimage.distance_transform_edt(taken == 0, return_indices=True)
+            nearest = taken[near_y[faint], near_x[faint]]
+            labels[faint] = np.maximum(nearest, 0)
+            no_part[faint] = nearest < 0
         elif faint.any():
             no_part |= faint
         present = set(np.unique(labels).tolist())
@@ -486,6 +544,54 @@ def drawn(piece: dict) -> np.ndarray:
     return out
 
 
+def turned_together(texts: list[dict], solid: np.ndarray) -> list[tuple[list[dict], float]]:
+    """The groups of a layer's text parts that are turned together, each with its angle in degrees: parts whose
+    boxes overlap and whose solid pixels are turned the same way, by ANGLE_SNAP degrees or more.
+
+    texts: the layer's text parts, their boxes in the layer's pixels. solid: the layer's solid pixels.
+    """
+    pairs = [
+        (one, other)
+        for one, other in combinations(texts, 2)
+        if min(one["box"][2], other["box"][2]) > max(one["box"][0], other["box"][0])
+        and min(one["box"][3], other["box"][3]) > max(one["box"][1], other["box"][1])
+    ]
+    angles = {}
+    for part in {part["id"]: part for pair in pairs for part in pair}.values():
+        left, top, right, bottom = part["box"]
+        ys, xs = np.nonzero(solid[max(0, top) : bottom, max(0, left) : right])
+        step = max(1, len(xs) // TURN_SAMPLE)
+        angles[part["id"]] = (
+            text_angle(xs[::step].astype(np.float64), ys[::step].astype(np.float64)) if len(xs) else 0.0
+        )
+    groups: list[dict] = []
+    for one, other in pairs:
+        low, high = sorted((angles[one["id"]], angles[other["id"]]))
+        if min(abs(low), abs(high)) < ANGLE_SNAP or low * high < 0 or high - low > SAME_TURN:
+            continue
+        joined = [group for group in groups if one["id"] in group or other["id"] in group]
+        groups = [group for group in groups if not any(group is found for found in joined)]
+        groups.append(
+            {key: part for group in joined for key, part in group.items()} | {one["id"]: one, other["id"]: other}
+        )
+    return [(list(group.values()), float(np.mean([angles[key] for key in group]))) for group in groups]
+
+
+def line_ends(rows: np.ndarray) -> np.ndarray:
+    """Where turned text falls apart into its lines: the emptiest row of each gap between two lines.
+
+    rows: how many of the text's solid pixels each row across its angle holds.
+    """
+    rows = rows.astype(np.float64)
+    fullest = np.minimum(np.maximum.accumulate(rows), np.maximum.accumulate(rows[::-1])[::-1])
+    gaps, _ = ndimage.label(rows <= LINE_GAP * fullest)
+    ends = []
+    for (gap,) in ndimage.find_objects(gaps):
+        emptiest = np.nonzero(rows[gap] == rows[gap].min())[0]
+        ends.append(gap.start + int(emptiest[len(emptiest) // 2]))
+    return np.array(ends, np.int64)
+
+
 def turned_box(alpha: np.ndarray, kind: str) -> dict | None:
     """A piece's turned box, {"cx", "cy", "width", "height", "angle"}: its centre, its size along and across the
     piece, and the angle in degrees, clockwise with y down. None when the piece has too few solid pixels to measure.
@@ -501,14 +607,7 @@ def turned_box(alpha: np.ndarray, kind: str) -> dict | None:
         return None
     xs, ys = xs.astype(np.float64), ys.astype(np.float64)
     if kind == "text":
-        best, angle = -1.0, 0.0
-        for candidate in np.arange(-45, 45.01, 0.5):
-            turn = np.deg2rad(candidate)
-            across = -xs * np.sin(turn) + ys * np.cos(turn)
-            rows = np.bincount((across - across.min()).astype(np.int64)).astype(np.float64)
-            score = (rows**2).sum()
-            if score > best:
-                best, angle = score, float(candidate)
+        angle = text_angle(xs, ys)
     else:
         (_, _), (_, _), angle = cv2.minAreaRect(np.stack([xs, ys], 1).astype(np.float32))
         # The turn nearest to upright.
@@ -538,3 +637,17 @@ def turned_box(alpha: np.ndarray, kind: str) -> dict | None:
         "height": round(float(across.max() - across.min() + 1), 1),
         "angle": round(float(angle), 1),
     }
+
+
+def text_angle(xs: np.ndarray, ys: np.ndarray) -> float:
+    """The angle in degrees, from -45 to 45, at which the lines of a text stack most sharply. xs, ys: where its
+    solid pixels are."""
+    best, angle = -1.0, 0.0
+    for candidate in np.arange(-45, 45.01, 0.5):
+        turn = np.deg2rad(candidate)
+        across = -xs * np.sin(turn) + ys * np.cos(turn)
+        rows = np.bincount((across - across.min()).astype(np.int64)).astype(np.float64)
+        score = (rows**2).sum()
+        if score > best:
+            best, angle = score, float(candidate)
+    return angle

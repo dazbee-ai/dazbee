@@ -61,8 +61,8 @@ export type TextLayerProps = Placed & {
     outline?: TextOutline
   }
   curve?: TextCurve
-  /** Ranges of the text, in UTF-16 units, drawn in their own colour and outline. */
-  runs?: { start: number; end: number; style: { color: Color; outline: TextOutline } }[]
+  /** Ranges of the text, in UTF-16 units, drawn in their own colour, and their own outline when given. */
+  runs?: { start: number; end: number; style: { color: Color; outline?: TextOutline } }[]
 }
 
 /** Measures and draws text in a set of faces. */

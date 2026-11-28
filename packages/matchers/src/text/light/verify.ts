@@ -8,7 +8,7 @@ import type { Bindings, MatchKit, Rgb, TextLook as StyleLook } from '@dazbee/sch
 import { type Judged, looksSame } from '../../looks-same/rule.ts'
 import { hexColour } from '../../shape/parts/colour.ts'
 import { kitBindings, kitColoured, kitStyle } from '../brand-first.ts'
-import { type Placed, type TextDrawer, textLayerProps, type TextLook } from '../draw-text.ts'
+import { type Placed, type TextDrawer, type TextLayerProps, textLayerProps, type TextLook } from '../draw-text.ts'
 import { isCutOut } from '../ink.ts'
 import type { PieceReading } from '../read-piece.ts'
 import type { Fitted } from './fit.ts'
@@ -97,12 +97,19 @@ export function finish(drawer: TextDrawer, target: VerifyTarget, fit: Fitted): V
 }
 
 /**
- * A look's text drawn at the piece's size with nothing behind it, judged against the piece over its
- * backgrounds; a flat crop is judged by the ink its reading found.
+ * A look's text drawn at the piece's size with nothing behind it, with `runs` when given, judged
+ * against the piece over its backgrounds; a flat crop is judged by the ink its reading found.
  */
-export function judgeText(drawer: TextDrawer, target: VerifyTarget, look: TextLook, place: Placed): Judged {
+export function judgeText(
+  drawer: TextDrawer,
+  target: VerifyTarget,
+  look: TextLook,
+  place: Placed,
+  runs?: TextLayerProps['runs'],
+): Judged {
   const { pixels, ink } = target.reading
-  const drawn = drawer.draw(pixels.width, pixels.height, textLayerProps(target.words, look, place))
+  const layer = textLayerProps(target.words, look, place)
+  const drawn = drawer.draw(pixels.width, pixels.height, runs ? { ...layer, runs } : layer)
   return looksSame('text', pixels, drawn, {
     backgrounds: target.backgrounds,
     ...(isCutOut(pixels) ? {} : { pieceInk: ink.data }),

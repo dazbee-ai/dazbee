@@ -48,6 +48,8 @@ export interface Split {
   unexplained: number
   /** Whether more patches than asked for hold an outline: the tracing stopped there, so not every patch has its outlines. */
   tooMany: boolean
+  /** Whether any edge pixel was read as mixed with the colour behind the piece. */
+  rim: boolean
 }
 
 /** What a cut is made with besides the picture and what is hidden of it. */
@@ -75,7 +77,15 @@ export function splitPatches(
   const { cut, covered } = coverageCut(picture)
   // A picture that covers next to nothing has no patch.
   if (covered < 4)
-    return { width, height, patchOf: new Int32Array(n).fill(-1), patches: [], unexplained: 0, tooMany: false }
+    return {
+      width,
+      height,
+      patchOf: new Int32Array(n).fill(-1),
+      patches: [],
+      unexplained: 0,
+      tooMany: false,
+      rim: false,
+    }
   const norm = 1 / (2 * cut)
   const fringe = fringeOf(picture, cut, norm)
   const seen = new Uint8Array(n)
@@ -86,16 +96,17 @@ export function splitPatches(
   if (!find) return null
   const { patches, patchOf } = numbered(seen, find, colours.label, width, height)
   const { near, mix } = edgeMixes(picture, patchOf, colours, fringe, norm, hidden, behind)
+  const rim = colours.rim?.includes(1) ?? false
   colour(patches, patchOf, near, data, colours, hidden)
   const unexplained = colours.unexplained / covered
   let outlined = 0
   for (const r of patches) {
     outlines(r, patchOf, near, mix, width, height)
     if (most && r.outline >= most.outline && ++outlined > most.patches) {
-      return { width, height, patchOf, patches, unexplained, tooMany: true }
+      return { width, height, patchOf, patches, unexplained, tooMany: true, rim }
     }
   }
-  return { width, height, patchOf, patches, unexplained, tooMany: false }
+  return { width, height, patchOf, patches, unexplained, tooMany: false, rim }
 }
 
 /** The alpha from which a pixel is covered: half the alpha of the piece's most opaque pixels, between 0.08 and 0.5. */

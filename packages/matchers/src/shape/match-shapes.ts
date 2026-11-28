@@ -22,10 +22,10 @@ import type { Detail } from './detail-check.ts'
 import { drawGraphics } from './draw-layers.ts'
 import { graphicsOf, regularOf } from './graphics.ts'
 import { judge, type Judged, type Seen, withoutUnseen } from './judging.ts'
-import { shrinkFloats, toFloatPicture } from './parts/float-picture.ts'
+import { type FloatPicture, shrinkFloats, toFloatPicture } from './parts/float-picture.ts'
 import { piecePixels } from './parts/piece-pixels.ts'
 import { gradientOf } from './patch-gradient.ts'
-import { splitPatches } from './patches.ts'
+import { type Split, splitPatches } from './patches.ts'
 import { shadowOf } from './shadow.ts'
 import { busyShare, SHRINK_LOSS, shrunkWithLoss } from './shrink-loss.ts'
 import { stack, type Stacked } from './stacking.ts'
@@ -59,7 +59,8 @@ export const SHAPES = {
 
 /**
  * The shape matcher's steps: the piece cut into patches, the patches made graphics, and the graphics judged by the
- * rule and the detail check; the last two are told again when the shapes are traced for a second try.
+ * rule and the detail check; the last two are told again when the shapes are traced for a second try, and all
+ * three when the piece is cut again without the colour behind it.
  */
 export const SHAPE_STEPS = ['patches', 'graphics', 'judging'] as const
 export type ShapeStep = (typeof SHAPE_STEPS)[number]
@@ -97,11 +98,50 @@ export function matchShapesOf(
   if (spread && busyShare(cutAt, spread, hidden) > SHRINK_LOSS.mostBusy) return pictureAnswer('tooManyParts')
   const worked = toFloatPicture(cutAt)
   const seen: Seen = { ck, piece, small, hidden: hiddenAt(around.hidden, piece, small), behind: around.behind }
+  // Edge pixels mixed with the colour behind the piece are one reading of its edges, right for a cut-out that kept a
+  // rim of its ground and wrong for one whose own edge is such a mix. When that reading was made and its rebuild
+  // looks different, the piece is cut again without it.
+  const first = rebuilt(ck, piece, colors, worked, hidden, seen, around.behind, step)
+  if (first.answer.kind === 'layers' || !first.rim) return first.answer
+  step?.('patches')
+  const second = rebuilt(ck, piece, colors, worked, hidden, seen, undefined, step)
+  return second.answer.kind === 'layers' ? second.answer : first.answer
+}
+
+/**
+ * The answer for a piece cut with `behind` as the colour its edge pixels may be mixed with, or with none, and
+ * whether any edge pixel was read as such a mix.
+ */
+function rebuilt(
+  ck: CanvasKit,
+  piece: Pixels,
+  colors: MatchKit['colors'],
+  worked: FloatPicture,
+  hidden: Uint8Array | undefined,
+  seen: Seen,
+  behind: Rgb | undefined,
+  step?: (step: ShapeStep) => void,
+): { answer: MatchAnswer; rim: boolean } {
   const split = splitPatches(worked, hidden, {
     most: { patches: SHAPES.mostPatches, outline: SHAPES.leastOutline },
-    ...(around.behind ? { behind: around.behind } : {}),
+    ...(behind ? { behind } : {}),
   })
-  if (!split) return pictureAnswer('tooManyParts')
+  if (!split) return { answer: pictureAnswer('tooManyParts'), rim: false }
+  const answer = graphicsAnswer(ck, piece, colors, worked, hidden, seen, split, step)
+  return { answer, rim: split.rim }
+}
+
+/** The answer for a piece from the patches it was cut into. */
+function graphicsAnswer(
+  ck: CanvasKit,
+  piece: Pixels,
+  colors: MatchKit['colors'],
+  worked: FloatPicture,
+  hidden: Uint8Array | undefined,
+  seen: Seen,
+  split: Split,
+  step?: (step: ShapeStep) => void,
+): MatchAnswer {
   if (split.unexplained > SHAPES.mostUnexplained) return pictureAnswer('photo')
   if (split.tooMany) return pictureAnswer('tooManyParts')
   const patches = split.patches.filter((r) => r.outline >= SHAPES.leastOutline)

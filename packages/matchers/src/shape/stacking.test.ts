@@ -61,8 +61,6 @@ const cutWithCrumb = (crumb: number, side: number): { patch: Patch; patchOf: Int
     rgb: [16, 40, 72],
     alpha: 1,
     area,
-    shown: area,
-    beside: 0,
     box: { x0: 10, y0: 10, x1: 89, y1: 49 },
     spread: 0,
     loops,

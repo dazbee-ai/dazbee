@@ -174,44 +174,18 @@ describe('splitPatches', () => {
     expect(split?.patches[0]?.loops.filter((loop) => loop.area < 0)).toEqual([])
   })
 
-  it('counts the pixels of each patch that no other layer hides: none of a patch hidden whole', () => {
+  it('gives a patch other layers hide all of the colour it was cut by, as a patch that shows has its own', () => {
     const { piece, hidden } = bandAndDisc()
     const split = splitPatches(toFloatPicture(piece), hidden)
     if (!split) throw new Error('the piece was cut no further')
     expect(split.patches).toHaveLength(3)
-    for (const patch of split.patches) {
-      let shown = 0
-      split.patchOf.forEach((id, i) => {
-        if (id === patch.id && !hidden[i]) shown++
-      })
-      expect(patch.shown).toBe(shown)
-    }
     // The band and the white show; the disc, of the band's red, is all under the hidden box.
     const disc = split.patches[split.patchOf[100 * 300 + 220] ?? -1]
     const band = split.patches[split.patchOf[100 * 300 + 50] ?? -1]
     expect(disc?.area).toBeGreaterThan(2700)
-    expect(disc?.shown).toBe(0)
-    expect(band?.shown).toBe(100 * 200)
     expect(disc?.colour).toBe(band?.colour)
-    for (const patch of splitPatches(toFloatPicture(piece))?.patches ?? []) expect(patch.shown).toBe(patch.area)
-    // The disc lies inside the hidden box, so none of its pixels is beside one that shows.
-    expect(disc?.beside).toBe(0)
-  })
-
-  it('gives a patch hidden up to its edge the colour it was cut by, and counts its pixels beside what shows', () => {
-    // Two blue blocks on a green ground: the right one is all under the hidden box.
-    const layers = [
-      rectangle({ x: 0, y: 0, width: 200, height: 100 }, GREEN),
-      rectangle({ x: 20, y: 20, width: 60, height: 60 }, BLUE),
-      rectangle({ x: 120, y: 20, width: 60, height: 60 }, BLUE),
-    ]
-    const hidden = hiding({ x: 120, y: 20, width: 60, height: 60 }, 200, 100)
-    const split = splitPatches(toFloatPicture(drawGraphics(ck, layers, 200, 100)), hidden)
-    const block = split?.patches[split.patchOf[50 * 200 + 150] ?? -1]
-    expect(block?.shown).toBe(0)
-    // Its outermost pixels lie beside the ground, which shows: 4 sides of 60, less the corners counted once.
-    expect(block?.beside).toBe(4 * 60 - 4)
-    expect(block?.rgb.map(Math.round)).toEqual([0x25, 0x63, 0xeb])
+    expect(disc?.rgb.map(Math.round)).toEqual([220, 38, 38])
+    expect(band?.rgb.map(Math.round)).toEqual([220, 38, 38])
   })
 
   it('cuts a picture that covers nothing into no patches', () => {

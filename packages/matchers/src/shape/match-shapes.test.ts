@@ -8,8 +8,9 @@ import { drawGraphics, type ShapeLayer } from './draw-layers.ts'
 import { matchShapes, matchShapesOf, SHAPE_STEPS, type ShapeStep } from './match-shapes.ts'
 import { hexRgb } from './parts/colour.ts'
 import {
-  bandAndDisc,
   type Box,
+  dashes,
+  dashesAcross,
   expectBox,
   expectColour,
   flatFill,
@@ -304,16 +305,15 @@ describe('matchShapesOf', () => {
     expect(flatFill(only)).toEqual({ type: 'solid', color: BLUE })
   })
 
-  it('makes no graphic of a shape other layers hide all of', () => {
-    const { piece, hidden } = bandAndDisc()
-    expect(graphicsIn(matchShapesOf(ck, piece, {}))).toHaveLength(3)
-    const shown = graphicsIn(matchShapesOf(ck, piece, {}, { hidden }))
-    expect(shown).toHaveLength(2)
-    for (const layer of shown) {
-      expect(flatFill(layer).color).not.toBe('#000000FF')
-      // Neither is the disc, 60 px across: they are the band and the white beside it, as tall as the piece.
-      expect(layer.props.width).toBeGreaterThan(90)
-      expect(layer.props.height).toBeGreaterThan(190)
+  it('rebuilds every dash of a row in two shades, also the dashes other layers hide, each in its shade', () => {
+    const { piece, hidden, behind, shades } = dashes()
+    for (const around of [{ behind }, { behind, hidden }]) {
+      const answer = matchShapesOf(ck, piece, {}, around)
+      if (answer.kind !== 'layers') throw new Error(`a picture: ${answer.why}`)
+      expect(dashesAcross(drawGraphics(ck, answer.layers, piece.width, piece.height))).toBe(dashesAcross(piece))
+      const colours = graphicsIn(answer).map((layer) => hexRgb(flatFill(layer).color))
+      for (const shade of shades)
+        expect(colours.some((colour) => colour.every((v, i) => Math.abs(v - (shade[i] ?? 0)) <= 6))).toBe(true)
     }
   })
 

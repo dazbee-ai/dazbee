@@ -52,10 +52,9 @@ export function graphicsOf(
   const loose: { at: number; s: Stacked }[] = []
   let covered = 0
   stacked.forEach((s, at) => {
-    // A patch other layers hide all of, edge included, is not seen: it is no graphic. What a shape stands for (the fill inside its
-    // border, the rest of its surface) is drawn with it only when it is drawn as that shape: traced, every patch
-    // that is seen is drawn.
-    if (s.seenThrough || s.patch.shown + s.patch.beside === 0 || (shapes && s.absorbed)) return
+    // What a shape stands for (the fill inside its border, the rest of its surface) is drawn with it only when it
+    // is drawn as that shape: traced, every patch is drawn.
+    if (s.seenThrough || (shapes && s.absorbed)) return
     covered += s.patch.area
     if (!s.closes && !(shapes && s.regular)) loose.push({ at, s })
     else if (shapes && s.primitive)

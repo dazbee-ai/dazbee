@@ -14,7 +14,7 @@ import { hexRgb } from './parts/colour.ts'
 import { toFloatPicture } from './parts/float-picture.ts'
 import { type Split, splitPatches } from './patches.ts'
 import { stack, type Stacked } from './stacking.ts'
-import { hiding } from './test-pieces.ts'
+import { hiding, rectangle } from './test-pieces.ts'
 
 /** A graphic of an answer. */
 export type Graphic = Extract<UnplacedLayer, { type: 'graphic' }>
@@ -66,6 +66,36 @@ export function bandAndDisc(): { piece: Pixels; hidden: Uint8Array } {
     x < 100 || Math.hypot(x + 0.5 - 220, y + 0.5 - 100) < 30 ? [220, 38, 38, 255] : [255, 255, 255, 255],
   )
   return { piece, hidden: hiding({ x: 160, y: 40, width: 120, height: 120 }, 300, 200) }
+}
+
+/**
+ * A clear piece with a row of 16 dashes of 24 × 6, 10 apart, stepping down as they go: every third in a lighter
+ * shade, the darker blue mixed half and half with the colour `behind` the piece. `hidden` covers the fourth to the
+ * seventh dash whole, as a layer in front would.
+ */
+export function dashes(): { piece: Pixels; hidden: Uint8Array; behind: [number, number, number]; shades: number[][] } {
+  const layers = Array.from({ length: 16 }, (_, k) =>
+    rectangle({ x: 10 + k * 34, y: 20 + k * 2, width: 24, height: 6 }, k % 3 === 1 ? '#88AED6FF' : '#1C6ECDFF', 3),
+  )
+  const piece = drawGraphics(ck, layers, 564, 80)
+  const shades = [
+    [28, 110, 205],
+    [136, 174, 214],
+  ]
+  return { piece, hidden: hiding({ x: 105, y: 0, width: 140, height: 80 }, 564, 80), behind: [244, 238, 222], shades }
+}
+
+/** How many dashes a picture shows from left to right: its runs of columns with a pixel at least half covered. */
+export function dashesAcross({ width, height, pixels }: Pixels): number {
+  let runs = 0
+  let inside = false
+  for (let x = 0; x < width; x++) {
+    let covered = false
+    for (let y = 0; y < height && !covered; y++) covered = (pixels[(y * width + x) * 4 + 3] ?? 0) >= 128
+    if (covered && !inside) runs++
+    inside = covered
+  }
+  return runs
 }
 
 /**

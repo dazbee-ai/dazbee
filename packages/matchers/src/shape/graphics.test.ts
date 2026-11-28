@@ -266,16 +266,17 @@ describe('graphicsOf', () => {
     expect(Math.abs((outline?.props.strokes[0]?.width ?? NaN) - 16)).toBeLessThan(1)
   })
 
-  it('makes no graphic of a patch other layers hide all of', () => {
+  it('draws a patch other layers hide all of as the piece holds it, in the colour it was cut by', () => {
     const { piece, hidden } = bandAndDisc()
-    expect(graphicsOf(shaped(piece), true, 1).layers).toHaveLength(3)
     const { layers } = graphicsOf(shaped(piece, hidden), true, 1)
-    expect(layers.map((layer) => layer.props.shape.kind)).toEqual(['rect', 'rect'])
-    // The white beside the band, whole under where the disc was, and the band.
-    const [white, band] = layers
-    if (!white || !band) throw new Error('fewer than two graphics')
+    expect(layers.map((layer) => layer.props.shape.kind)).toEqual(['rect', 'rect', 'ellipse'])
+    // The white beside the band, the band, and the disc under the hidden box, red as the band.
+    const [white, band, disc] = layers
+    if (!white || !band || !disc) throw new Error('fewer than three graphics')
     expectBox(white, { x: 100, y: 0, width: 200, height: 200 })
     expectBox(band, { x: 0, y: 0, width: 100, height: 200 })
+    expectBox(disc, { x: 190, y: 70, width: 60, height: 60 })
+    expectColour(flatFill(disc).color, '#DC2626FF')
   })
 })
 

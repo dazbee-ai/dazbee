@@ -105,8 +105,8 @@ export function matchShapesOf(
   if (split.unexplained > SHAPES.mostUnexplained) return pictureAnswer('photo')
   if (split.tooMany) return pictureAnswer('tooManyParts')
   const patches = split.patches.filter((r) => r.outline >= SHAPES.leastOutline)
-  // A piece with nothing to draw that is seen has no rebuild that looks the same.
-  if (!patches.some((r) => r.shown + r.beside > 0)) return pictureAnswer('looksDifferent')
+  // A piece with nothing to draw has no rebuild that looks the same.
+  if (patches.length === 0) return pictureAnswer('looksDifferent')
   step?.('graphics')
   const stacked = stack(patches, split.patchOf, split.width, split.height)
   for (const s of stacked) s.gradient = gradientOf(s.patch, worked, split.patchOf, hidden)

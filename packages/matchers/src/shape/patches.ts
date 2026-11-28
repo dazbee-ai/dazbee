@@ -23,13 +23,8 @@ export interface Patch {
   /** The mean colour and alpha (0 to 1) of its inner pixels. */
   rgb: [number, number, number]
   alpha: number
-  /**
-   * How many pixels it holds, how many of them no other layer hides, and how many of its hidden ones lie right
-   * beside a pixel no layer hides, where its edge still shows.
-   */
+  /** How many pixels it holds. */
   area: number
-  shown: number
-  beside: number
   /** Its first and last column and row. */
   box: { x0: number; y0: number; x1: number; y1: number }
   /** The root mean square distance of its inner pixels' colour from its mean, of 255. */
@@ -89,7 +84,7 @@ export function splitPatches(
   if (!colours) return null
   const find = joinedAreas(picture, seen, colours, covered, hidden)
   if (!find) return null
-  const { patches, patchOf } = numbered(seen, find, colours.label, width, height, hidden)
+  const { patches, patchOf } = numbered(seen, find, colours.label, width, height)
   const { near, mix } = edgeMixes(picture, patchOf, colours, fringe, norm, hidden, behind)
   colour(patches, patchOf, near, data, colours, hidden)
   const unexplained = colours.unexplained / covered
@@ -130,7 +125,6 @@ function numbered(
   label: Int16Array,
   width: number,
   height: number,
-  hidden?: Uint8Array,
 ): { patches: Patch[]; patchOf: Int32Array } {
   const n = width * height
   const idOf = new Int32Array(n).fill(-1)
@@ -150,8 +144,6 @@ function numbered(
           rgb: [0, 0, 0],
           alpha: 1,
           area: 0,
-          shown: 0,
-          beside: 0,
           box: { x0: x, y0: y, x1: x, y1: y },
           spread: 0,
           loops: [],
@@ -163,14 +155,6 @@ function numbered(
       const r = patches[id]
       if (!r) continue
       r.area++
-      if (!hidden?.[i]) r.shown++
-      else if (
-        (x > 0 && !hidden[i - 1]) ||
-        (x + 1 < width && !hidden[i + 1]) ||
-        (y > 0 && !hidden[i - width]) ||
-        (y + 1 < height && !hidden[i + width])
-      )
-        r.beside++
       if (x < r.box.x0) r.box.x0 = x
       if (x > r.box.x1) r.box.x1 = x
       if (y > r.box.y1) r.box.y1 = y
@@ -280,7 +264,7 @@ function colour(
   for (const r of patches) {
     const s = sums[r.id]
     if (!s) continue
-    // A patch with no pixel that shows has the colour it was cut by.
+    // A patch other layers hide all of has the colour it was cut by: it is drawn under them as the piece holds it.
     const cut = palette[r.colour]
     if (!s[15] && cut) {
       r.rgb = [cut.rgb[0], cut.rgb[1], cut.rgb[2]]

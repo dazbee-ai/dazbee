@@ -175,26 +175,33 @@ describe('matchShapesOf', () => {
     expect(layer.name).toBe('Green pill')
   })
 
-  it('rebuilds each kind of shape as one graphic of its kind, and a gradient as a gradient fill', () => {
+  describe('each kind of shape', () => {
     const size = { width: 260, height: 240 }
     const box = { x: 30, y: 20, width: 200, height: 200 }
     const fill = { fill: { type: 'solid' as const, color: BLUE } }
     const tick = 'M10 55 L25 40 L42 57 L78 18 L92 32 L42 88 Z'
-    const kinds: [ShapeLayer, string][] = [
-      [ellipse(box, RED), 'ellipse'],
-      [rectangle({ x: 40, y: 60, width: 180, height: 90, rotation: -30 }, BLUE), 'rect'],
-      [rectangle({ x: 20, y: 118, width: 220, height: 4 }, INK), 'line'],
-      [stroked({ kind: 'ellipse' }, box, BLUE, 8), 'ellipse'],
-      [graphic({ kind: 'polygon', sides: 6, cornerRadius: 0 }, box, fill), 'polygon'],
-      [graphic({ kind: 'star', points: 5, innerRadius: 0.382, cornerRadius: 0 }, box, fill), 'star'],
+    const kinds: [string, string, ShapeLayer][] = [
+      ['an ellipse', 'ellipse', ellipse(box, RED)],
+      ['a turned rectangle', 'rect', rectangle({ x: 40, y: 60, width: 180, height: 90, rotation: -30 }, BLUE)],
+      ['a thin bar', 'line', rectangle({ x: 20, y: 118, width: 220, height: 4 }, INK)],
+      ['a ring', 'ellipse', stroked({ kind: 'ellipse' }, box, BLUE, 8)],
+      ['a hexagon', 'polygon', graphic({ kind: 'polygon', sides: 6, cornerRadius: 0 }, box, fill)],
+      ['a star', 'star', graphic({ kind: 'star', points: 5, innerRadius: 0.382, cornerRadius: 0 }, box, fill)],
       [
-        graphic({ kind: 'path', d: tick, fillRule: 'nonzero', drawnIn: { width: 100, height: 100 } }, box, fill),
+        'a tick',
         'path',
+        graphic({ kind: 'path', d: tick, fillRule: 'nonzero', drawnIn: { width: 100, height: 100 } }, box, fill),
       ],
     ]
-    for (const [layer, kind] of kinds) expect(rebuiltAsOne([layer], size).props.shape.kind).toBe(kind)
-    const shaded = rebuiltAsOne([graphic({ kind: 'rect', cornerRadius: 0 }, box, { fill: SUNSET })], size)
-    expect(shaded.props.fills.map((paint) => paint.type)).toEqual(['linear'])
+
+    it.each(kinds)('rebuilds %s as one %s', (_name, kind, layer) => {
+      expect(rebuiltAsOne([layer], size).props.shape.kind).toBe(kind)
+    })
+
+    it('rebuilds a gradient as a gradient fill', () => {
+      const shaded = rebuiltAsOne([graphic({ kind: 'rect', cornerRadius: 0 }, box, { fill: SUNSET })], size)
+      expect(shaded.props.fills.map((paint) => paint.type)).toEqual(['linear'])
+    })
   })
 
   it('rebuilds a pill with a drop shadow as one graphic with the shadow as its effect', () => {

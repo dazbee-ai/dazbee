@@ -2,7 +2,8 @@
 // as the split saw it, whether an earlier finish placed the job's layers in it already, and the commands that hide
 // the picture layer and place the layers over it, bottom first: a picture layer for a split piece or a split layer,
 // and for a piece a matcher rebuilt its live layers, bound to the brand kit as the matcher bound them, a text
-// fitted to its words, and several layers of one piece in a group named after the piece.
+// fitted to its words, and several layers of one piece in a group named after the piece; and which rebuilt pieces
+// stay pictures so that a frame gets no more layers than Back to picture takes.
 import { CommandError, type Session } from '@dazbee/doc'
 import type { FontUse } from '@dazbee/fonts'
 import {
@@ -12,6 +13,7 @@ import {
   frameIdOf,
   type ImageCrop,
   type Layer,
+  MAX_PICTURE_LAYERS,
   MAX_SPLIT_PIECES,
   pictureLayerOf,
   textFontUses,
@@ -183,7 +185,29 @@ export function asPicture(layer: PlacedLayer): PlacedLayer {
   return { ...layer, matched: undefined }
 }
 
+/**
+ * A frame's placed layers `layers`, front to back, making no more layers in the frame than Back to picture takes
+ * (`MAX_PICTURE_LAYERS`): a picture layer makes one, a rebuilt piece its layers and the group several of them are
+ * put in. Taken front to back, a rebuilt piece whose layers don't fit beside one layer for each other piece stays a
+ * picture; a smaller one behind it that fits is still rebuilt.
+ */
+export function withinLimit(layers: readonly PlacedLayer[]): PlacedLayer[] {
+  let room = MAX_PICTURE_LAYERS - layers.length
+  return layers.map((layer) => {
+    const more = layersMade(layer) - 1
+    if (more > room) return asPicture(layer)
+    room -= more
+    return layer
+  })
+}
+
 /** The fonts a rebuilt layer is drawn in: a text's; none for a graphic. */
 export function fontUses(layer: UnplacedLayer): readonly FontUse[] {
   return layer.type === 'text' ? textFontUses(layer as Extract<Layer, { type: 'text' }>) : []
+}
+
+/** How many layers placing `layer` makes in its frame: one, or a rebuilt piece's several and their group. */
+function layersMade(layer: PlacedLayer): number {
+  const rebuilt = layer.matched?.length ?? 1
+  return rebuilt > 1 ? rebuilt + 1 : 1
 }

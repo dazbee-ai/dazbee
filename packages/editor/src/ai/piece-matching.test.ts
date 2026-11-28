@@ -219,6 +219,32 @@ describe('seenBehind', () => {
     expect(seenBehind(under, piecePixels)).toEqual([10, 20, 200])
   })
 
+  it('is, a channel, the value in the middle of the clear pixels’ values in order: of an even count, the upper of the two', () => {
+    const clear = (count: number) => row(count, () => [0, 0, 0, 0])
+    // 16 clear pixels: 8 reds of 10 then 8 of 20, greens of 30 and 40 in turn.
+    const even = row(16, (i) => [i < 8 ? 10 : 20, i % 2 === 0 ? 30 : 40, 5, 255])
+    expect(seenBehind(even, clear(16))).toEqual([20, 40, 5])
+    // 17 clear pixels: 9 reds of 10 and 8 of 20, 8 greens of 30 and 9 of 40.
+    const odd = row(17, (i) => [i < 9 ? 10 : 20, i < 8 ? 30 : 40, 5, 255])
+    expect(seenBehind(odd, clear(17))).toEqual([10, 40, 5])
+  })
+
+  it('is what sorting each channel’s values where the piece is clear gives, for even and odd counts of them', () => {
+    // Each channel's values are spread their own way, in no order, with 0 and 255 among them.
+    const under = row(90, (i) => [(i * 37) % 256, 255 - ((i * 13) % 97), i % 3 === 0 ? 0 : 255, 255])
+    for (const count of [16, 17, 50, 51, 90]) {
+      // Every other pixel is clear at first, then all of them, until `count` are.
+      const order = Array.from({ length: 90 }, (_, i) => (i < 45 ? i * 2 : (i - 45) * 2 + 1))
+      const shown = new Set(order.slice(0, count))
+      const piecePixels = row(90, (i) => [0, 0, 0, shown.has(i) ? 0 : 255])
+      const sorted = [0, 1, 2].map((channel) => {
+        const values = [...shown].map((i) => under.pixels[i * 4 + channel] ?? 0)
+        return values.sort((a, b) => a - b)[values.length >> 1]
+      })
+      expect(seenBehind(under, piecePixels)).toEqual(sorted)
+    }
+  })
+
   it('is none when the piece leaves too little clear, or the two differ in size', () => {
     const solid = row(60, (i) => [0, 0, 0, i < 50 ? 255 : 0])
     expect(
@@ -227,6 +253,20 @@ describe('seenBehind', () => {
         solid,
       ),
     ).toBeNull()
+    // 15 clear pixels are too few, 16 enough.
+    const under = row(60, () => [1, 2, 3, 255])
+    expect(
+      seenBehind(
+        under,
+        row(60, (i) => [0, 0, 0, i < 45 ? 255 : 0]),
+      ),
+    ).toBeNull()
+    expect(
+      seenBehind(
+        under,
+        row(60, (i) => [0, 0, 0, i < 44 ? 255 : 0]),
+      ),
+    ).toEqual([1, 2, 3])
     expect(
       seenBehind(
         row(59, () => [1, 2, 3, 255]),

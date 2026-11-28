@@ -9,12 +9,14 @@
 // frame it downloads each split layer, crops it to what it shows, scaled to the frame, and uploads the crops as
 // hidden parts of the brand, a picture layer per split layer. Either way the layers are placed in the frame
 // (`place-layers.ts`) as one arrival no undo takes back: the picture layer hidden at the bottom, then the layers,
-// bottom first, in the split's order reversed. Layer ids come from the job, so a second finish places nothing new. A frame whose picture changed
-// or went meanwhile gets no layers, and offers Make editable again; so does a frame whose picture layer no longer
-// fills it as drawn, and a split that shows nothing. Another tab holding the lease is waited for; a lease that
-// lapses, as when a tab closes mid-way, is claimed by the next tab, and a tab that lost its lease places nothing. A
-// finish that fails is tried again after a minute, its parts uploaded once, and ended with nothing placed after three
-// tries; on the last try, matchers that fail leave their pieces pictures, and so do rebuilt layers the design refuses.
+// bottom first, in the split's order reversed. Layer ids come from the job, so a second finish places nothing new.
+// A rebuilt piece whose layers would give the frame more than Back to picture takes stays a picture. A frame whose
+// picture changed or went meanwhile gets no layers, and offers Make editable again; so does a frame whose picture
+// layer no longer fills it as drawn, and a split that shows nothing. Another tab holding the lease is waited for; a
+// lease that lapses, as when a tab closes mid-way, is claimed by the next tab, and a tab that lost its lease places
+// nothing. A finish that fails is tried again after a minute, its parts uploaded once, and ended with nothing placed
+// after three tries; on the last try, matchers that fail leave their pieces pictures, and so do rebuilt layers the
+// design refuses.
 import type { CanvasKit } from '@dazbee/canvaskit'
 import type { Session } from '@dazbee/doc'
 import type { FontUse } from '@dazbee/fonts'
@@ -41,7 +43,7 @@ import {
 } from './layer-pieces.ts'
 import type { PieceMatcher } from './piece-matcher.ts'
 import { type LiftedFrame, pieceRebuild } from './piece-rebuild.ts'
-import { asPicture, fontUses, type PlacedLayer, placeLayers } from './place-layers.ts'
+import { asPicture, fontUses, type PlacedLayer, placeLayers, withinLimit } from './place-layers.ts'
 
 export interface LayeringFinishDeps {
   session: Session
@@ -296,7 +298,8 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
   /**
    * The frame's piece layers `layers`, one per split piece of `cut`, with those the matchers rebuild given their
    * live layers, placed in the frame of size `own`, each with its id, and the id of the group several of them are
-   * put in. On the `last` try, a rebuild that fails leaves every piece a picture.
+   * put in; a piece whose layers would make the frame's more than Back to picture takes stays a picture
+   * (`withinLimit`). On the `last` try, a rebuild that fails leaves every piece a picture.
    */
   async function rebuilt(
     frame: AiFrameView,
@@ -314,10 +317,12 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
       if (!last) throw e
       return layers
     }
-    return layers.map((layer, n) => {
-      const matched = made.get(n)?.map((one, nth) => ({ id: pieceId(job.id, frame.frameId, n, nth), layer: one }))
-      return matched ? { ...layer, matched, group: pieceGroupId(job.id, frame.frameId, n) } : layer
-    })
+    return withinLimit(
+      layers.map((layer, n) => {
+        const matched = made.get(n)?.map((one, nth) => ({ id: pieceId(job.id, frame.frameId, n, nth), layer: one }))
+        return matched ? { ...layer, matched, group: pieceGroupId(job.id, frame.frameId, n) } : layer
+      }),
+    )
   }
 
   /** A split layer cropped to what it shows, as a PNG, and its box in the layer's pixels; null when it shows nothing. */

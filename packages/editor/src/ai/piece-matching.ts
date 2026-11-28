@@ -41,6 +41,8 @@ const CLEAR = 8
 const COVERS = 128
 /** The fewest clear pixels a piece's box holds for the colour behind it to be read. */
 const LEAST_CLEAR = 16
+/** How many values a channel of a pixel takes. */
+const VALUES = 256
 /** The most characters a text piece's words hold (the match job's rule). */
 const MOST_WORDS = 2000
 /** A piece holds more than its planned part when it reaches past the part's box by over this share of the box's shorter side. */
@@ -98,19 +100,25 @@ export function pieceMatchJob(
 
 /**
  * The colour the picture shows behind a split piece: the median of `under`, the picture's pixels under the piece's
- * box, where `piece`, the piece's own pixels of the same size, is clear. Null when the two differ in size or the
- * piece leaves too little of its box clear to tell.
+ * box, where `piece`, the piece's own pixels of the same size, is clear: a channel, the value in the middle of
+ * those pixels' values in order, the upper of the two for an even count. It counts how many pixels have each value,
+ * so it holds no pixel. Null when the two differ in size or the piece leaves too little of its box clear to tell.
  */
 export function seenBehind(under: Pixels, piece: Pixels): Rgb | null {
   if (under.width !== piece.width || under.height !== piece.height) return null
-  const channels: [number[], number[], number[]] = [[], [], []]
+  // How many clear pixels have each value, 256 counts a channel: red's, then green's, then blue's.
+  const counts = new Uint32Array(3 * VALUES)
+  let clear = 0
   for (let i = 0; i < piece.width * piece.height; i++) {
     if ((piece.pixels[i * 4 + 3] ?? 0) >= CLEAR) continue
-    for (const [c, values] of channels.entries()) values.push(under.pixels[i * 4 + c] ?? 0)
+    clear++
+    for (let channel = 0; channel < 3; channel++) {
+      const at = channel * VALUES + (under.pixels[i * 4 + channel] ?? 0)
+      counts[at] = (counts[at] ?? 0) + 1
+    }
   }
-  if (channels[0].length < LEAST_CLEAR) return null
-  const [red, green, blue] = channels.map((values) => values.sort((a, b) => a - b)[values.length >> 1] ?? 0)
-  return [red ?? 0, green ?? 0, blue ?? 0]
+  if (clear < LEAST_CLEAR) return null
+  return [middleValue(counts, 0, clear), middleValue(counts, 1, clear), middleValue(counts, 2, clear)]
 }
 
 /** The cover of a picture of size `picture` before any piece covers it. */
@@ -198,6 +206,19 @@ export function matchedLayers(
     return { ...layer, props } as UnplacedLayer
   })
   return placed.every((layer) => UnplacedLayer.safeParse(layer).success) ? placed : null
+}
+
+/**
+ * The value at index `count >> 1` of channel `channel`'s `count` values in order, read from `counts`, how many of
+ * them have each value.
+ */
+function middleValue(counts: Uint32Array, channel: number, count: number): number {
+  let upTo = 0
+  for (let value = 0; value < VALUES; value++) {
+    upTo += counts[channel * VALUES + value] ?? 0
+    if (upTo > count >> 1) return value
+  }
+  return VALUES - 1
 }
 
 /**

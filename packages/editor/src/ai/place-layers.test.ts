@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import { childrenOf, openSession } from '@dazbee/doc'
 import { openTestStore } from '@dazbee/doc/test-store'
-import { type AiFrameView, type DesignInput, pictureLayerOf, UnplacedLayer } from '@dazbee/schema'
+import { type AiFrameView, type DesignInput, MAX_PICTURE_LAYERS, pictureLayerOf, UnplacedLayer } from '@dazbee/schema'
 
-import { type PlacedLayer, placeLayers } from './place-layers.ts'
+import { type PlacedLayer, placeLayers, withinLimit } from './place-layers.ts'
 
 /** A design of one 1080 px frame whose picture layer shows picture `pic1`, filling it. */
 const design = (): DesignInput => ({
@@ -158,5 +158,39 @@ describe('placeLayers', () => {
 
     place(FRAME, [badge, pieceLayer(1, 'Backdrop')])
     expect(layersIn(session, 'f1')).toHaveLength(2)
+  })
+})
+
+describe('withinLimit', () => {
+  /** Split piece `n` rebuilt as `count` graphics. */
+  const rebuiltAs = (n: number, count: number) =>
+    pieceLayer(
+      n,
+      `Piece ${n}`,
+      Array.from({ length: count }, (_, i) => rect(i, 0, 4, 4)),
+    )
+  /** How many layers each piece is rebuilt as; none for one that is a picture. */
+  const rebuilt = (layers: readonly PlacedLayer[]) => layers.map((layer) => layer.matched?.length)
+
+  it('keeps a rebuilt piece while the frame gets no more layers than Back to picture takes, its group and the pictures counted', () => {
+    // 499 graphics and their group are 500 layers; one graphic more is one layer too many.
+    expect(rebuilt(withinLimit([rebuiltAs(0, MAX_PICTURE_LAYERS - 1)]))).toEqual([MAX_PICTURE_LAYERS - 1])
+    expect(rebuilt(withinLimit([rebuiltAs(0, MAX_PICTURE_LAYERS)]))).toEqual([undefined])
+    // A picture layer behind the piece takes one of the 500.
+    const backdrop = pieceLayer(1, 'Backdrop')
+    expect(rebuilt(withinLimit([rebuiltAs(0, MAX_PICTURE_LAYERS - 2), backdrop]))).toEqual([
+      MAX_PICTURE_LAYERS - 2,
+      undefined,
+    ])
+    expect(rebuilt(withinLimit([rebuiltAs(0, MAX_PICTURE_LAYERS - 1), backdrop]))).toEqual([undefined, undefined])
+  })
+
+  it('takes the pieces front to back: one that doesn’t fit stays a picture, and a smaller one behind it is still rebuilt', () => {
+    const layers = [rebuiltAs(0, 300), rebuiltAs(1, 300), rebuiltAs(2, 100), pieceLayer(3, 'Headline', [text()])]
+    const kept = withinLimit(layers)
+    expect(rebuilt(kept)).toEqual([300, undefined, 100, 1])
+    // The piece left a picture is placed as its own picture, at its box.
+    expect(kept[1]).toMatchObject({ id: 'job1-f1-1', assetId: 'cut-1', box: layers[1]?.box })
+    expect(kept[0]).toBe(layers[0])
   })
 })

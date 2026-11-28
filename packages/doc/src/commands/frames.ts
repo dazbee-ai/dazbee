@@ -14,6 +14,7 @@ import {
   Guide,
   type Layer,
   MAX_GUIDES,
+  MAX_PICTURE_LAYERS,
   NEW_FRAME_FILLS,
   newFramePosition,
   NodeId,
@@ -157,7 +158,7 @@ export const frameShowPicture = defineCommand({
   input: z.strictObject({
     frameId: FrameId.describe('The AI frame.'),
     pictureLayerId: NodeId.describe('Its picture layer.'),
-    layerIds: NodeId.array().max(500).describe('The layers made from the picture.'),
+    layerIds: NodeId.array().max(MAX_PICTURE_LAYERS).describe('The layers made from the picture.'),
     show: z.boolean().describe('true shows the picture and hides the layers; false the other way round.'),
   }),
   check: ({ design }, { frameId, pictureLayerId, layerIds }) => {

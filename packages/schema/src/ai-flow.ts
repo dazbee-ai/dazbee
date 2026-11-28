@@ -43,6 +43,9 @@ export const WAITING_FILL: SolidPaint = { type: 'solid', color: '#EFE9E1FF' }
 /** The name of a draft's picture layer. */
 export const PICTURE_NAME = 'Picture'
 
+/** The most layers made from an AI frame's picture: as many as Back to picture hides at once (`frame.showPicture`). */
+export const MAX_PICTURE_LAYERS = 500
+
 /** A frame's size in design pixels. */
 const FrameSize = z.object({
   width: z.number().int().positive().max(8192),

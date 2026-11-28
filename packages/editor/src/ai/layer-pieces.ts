@@ -2,7 +2,7 @@
 // layer plan and which reading are a frame's, where its split layers are among the job's files, and its split pieces
 // when the split cut any; each split layer's and each piece's name from the plan, where a layer's visible part is in
 // it, where a piece goes in the frame, the link id a piece shares with the same part of the job's other frames, and
-// the ids of the layers the finish places, which come from the job so a second finish writes the same ones.
+// the ids of the layers and groups the finish places, which come from the job so a second finish writes the same ones.
 import { imagePlacement } from '@dazbee/renderer'
 import {
   type AiFrameView,
@@ -219,6 +219,15 @@ export function pieceCrop(piece: Pick<MadePiece, 'x' | 'y' | 'picture'>, picture
  */
 export function pieceId(jobId: string, frameId: string, index: number, nth = 0): string {
   const tail = nth === 0 ? `-${index}` : `-${index}_${nth}`
+  return `${jobId}-${frameId}`.slice(0, ID_LENGTH - tail.length) + tail
+}
+
+/**
+ * The id of the group the finish puts the layers of split piece `index` of frame `frameId` in, when a matcher rebuilt
+ * the piece as several: from the job's id, as a layer's is.
+ */
+export function pieceGroupId(jobId: string, frameId: string, index: number): string {
+  const tail = `-${index}_group`
   return `${jobId}-${frameId}`.slice(0, ID_LENGTH - tail.length) + tail
 }
 

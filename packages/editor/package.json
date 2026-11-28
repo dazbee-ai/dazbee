@@ -16,6 +16,7 @@
     "./thumbnails": "./src/canvas/thumbnails.ts",
     "./resources": "./src/resources.ts",
     "./match-client": "./src/matching/match-client.ts",
+    "./piece-matcher": "./src/ai/piece-matcher.ts",
     "./agent-tab": "./src/agent-tab.ts",
     "./placed-asset": "./src/placed-asset.ts",
     "./test-editor": "./src/test-editor.ts",

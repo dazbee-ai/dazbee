@@ -710,7 +710,7 @@ Make editable on a section of AI sizes at once: a layer plan and a split per siz
 _Avoid_: Batch layering, editable all
 
 **Make editable**:
-The glass bar's action that runs layering on an AI frame, turning its picture into real layers in the same frame with the picture kept hidden; Back to picture brings the picture back. A text piece becomes a live text and a shape piece graphics where the matchers rebuild them; every other split piece stays a picture layer, and so does a text in custom lettering, and a text that doesn't look the same whose piece holds more than its planned part.
+The glass bar's action that runs layering on an AI frame, turning its picture into real layers in the same frame with the picture kept hidden; Back to picture brings the picture back. A text piece becomes a live text, and a shape piece, a graphic piece and the backdrop become graphics, where the matchers rebuild them; a piece rebuilt as several graphics is one group of them, named after its planned part. A photo or shaded art among them stays a picture layer, as every other split piece does, and so does a text in custom lettering, and a text that doesn't look the same whose piece holds more than its planned part.
 _Avoid_: Layerize, convert, decompose
 
 **AI image**:
@@ -770,7 +770,7 @@ The AI function of layering that splits a draft into picture layers, on our own 
 _Avoid_: Decompose, segmentation
 
 **Split piece**:
-One planned part of a picture as a picture of its own, cut from the split layers by the layer split: its pixels at the picture's own size, its place on the picture, its kind, the split layer it came from and its turned box. A **planned part** is one part of the layer plan: a headline, a button, a logo, a cut-out, the backdrop. The **turned box** is the piece's box turned to the angle the piece is drawn at: its centre, its size along and across the piece, and the angle in degrees clockwise, from -45 to 45, 0 for an upright piece; the backdrop has none. Loose bits of a split layer that belong to no planned part are a split piece too. A split piece is not yet a Piece: a text or shape split piece becomes a matcher's Piece later.
+One planned part of a picture as a picture of its own, cut from the split layers by the layer split: its pixels at the picture's own size, its place on the picture, its kind, the split layer it came from and its turned box. A **planned part** is one part of the layer plan: a headline, a button, a logo, a cut-out, the backdrop. The **turned box** is the piece's box turned to the angle the piece is drawn at: its centre, its size along and across the piece, and the angle in degrees clockwise, from -45 to 45, 0 for an upright piece; the backdrop has none. Loose bits of a split layer that belong to no planned part are a split piece too. A split piece is not yet a Piece: a text, shape, graphic or backdrop split piece becomes a matcher's Piece later.
 _Avoid_: Block, element, segment, cut-out (a layering kind for a cut-out photo), rotated box, tilted box
 
 **AI job**:

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import { loadCanvasKit } from '@dazbee/renderer/node'
-import type { MadePiece, MadePieces, MatchAnswer, MatchJob } from '@dazbee/schema'
+import { type MadePiece, type MadePieces, type MatchAnswer, MatchJob } from '@dazbee/schema'
 
 import type { MatchOptions } from '../matching/match-client.ts'
-import { type MatchSources, pieceMatcher } from './piece-matcher.ts'
+import { hiddenBits, type MatchSources, pieceMatcher } from './piece-matcher.ts'
 
 const ck = await loadCanvasKit()
 
@@ -90,18 +90,28 @@ const answerFor = (job: MatchJob): MatchAnswer =>
     : { kind: 'picture', why: 'photo' }
 
 /**
- * A matcher over `images`, with what its match client and its sources were asked, the signal its calls are given,
- * the editor's end, and whether its match client was ended.
+ * A matcher over `images`, with what its match client and its sources were asked, the pictures it decoded, the
+ * signal its calls are given, the editor's end, and whether its match client was ended.
  */
 function matcherOver(images: Record<string, Uint8Array>) {
   const jobs: MatchJob[] = []
   const options: MatchOptions[] = []
+  const decodes: Uint8Array[] = []
   let sourced = 0
   let destroyed = false
   const editor = new AbortController()
   const call = new AbortController()
+  const counting = new Proxy(ck, {
+    get: (target, key) =>
+      key === 'MakeImageFromEncoded'
+        ? (bytes: Uint8Array) => {
+            decodes.push(bytes)
+            return target.MakeImageFromEncoded(bytes)
+          }
+        : (Reflect.get(target, key) as unknown),
+  })
   const asked = pieceMatcher({
-    ck,
+    ck: counting,
     imageBytes: (assetId) => images[assetId],
     sources: () => {
       sourced++
@@ -124,6 +134,7 @@ function matcherOver(images: Record<string, Uint8Array>) {
     matcher,
     jobs,
     options,
+    decodes,
     sourced: () => sourced,
     signal: call.signal,
     call,
@@ -134,19 +145,29 @@ function matcherOver(images: Record<string, Uint8Array>) {
 
 const decoded = (base64: string) => Uint8Array.from(atob(base64), (char) => char.charCodeAt(0))
 
+/**
+ * What a job says is hidden of its picture of `count` pixels, a number a pixel, read as the shape matcher reads it:
+ * one bit a pixel, row by row, the first pixel of a byte in its highest bit.
+ */
+function hiddenIn(job: MatchJob | undefined, count: number): number[] {
+  const bits = decoded(job?.hidden ?? '')
+  return Array.from({ length: count }, (_, at) => ((bits[at >> 3] ?? 0) >> (7 - (at & 7))) & 1)
+}
+
 describe('pieceMatcher', () => {
-  it('asks the matchers of each text and shape piece as a job of its own picture, a text’s with the colour behind it', async () => {
+  it('asks the matchers of each text, shape and graphic piece as a job of its own picture, a text’s with the colour behind it', async () => {
     const cut = cutOf(
       piece('e1', 'text', 8, 30, 40, 20),
       piece('e3', 'graphic', 0, 0, 16, 16),
+      piece('e4', 'photo', 20, 0, 16, 16),
       piece('e2', 'shape', 40, 4, 16, 16),
     )
-    const images = { pic: PICTURE, 'cut-e1': HEADLINE, 'cut-e2': BADGE, 'cut-e3': BADGE }
+    const images = { pic: PICTURE, 'cut-e1': HEADLINE, 'cut-e2': BADGE, 'cut-e3': BADGE, 'cut-e4': BADGE }
     const { matcher, jobs, options, sourced, signal } = matcherOver(images)
     const answers = await matcher({ cut, plan: PLAN, reading: null, pictureAssetId: 'pic' })
 
     expect(sourced()).toBe(1)
-    expect(jobs).toHaveLength(2)
+    expect(jobs).toHaveLength(3)
     expect(jobs[0]).toEqual({
       picture: expect.any(String),
       pieces: [{ kind: 'text', words: 'Big sale', rect: { x: 0, y: 0, width: 40, height: 20 } }],
@@ -155,22 +176,101 @@ describe('pieceMatcher', () => {
       backgrounds: [[10, 20, 200]],
     })
     expect(decoded(jobs[0]?.picture ?? '')).toEqual(HEADLINE)
-    expect(jobs[1]).toEqual({
-      picture: expect.any(String),
-      pieces: [{ kind: 'shape', rect: { x: 0, y: 0, width: 16, height: 16 } }],
-      kit: SOURCES.kit,
-      setting: 'hybrid',
-    })
-    expect(decoded(jobs[1]?.picture ?? '')).toEqual(BADGE)
+    // An opaque piece no piece in front covers: no colour shows behind it, and nothing of it is hidden.
+    for (const job of jobs.slice(1)) {
+      expect(job).toEqual({
+        picture: expect.any(String),
+        pieces: [{ kind: 'shape', rect: { x: 0, y: 0, width: 16, height: 16 } }],
+        kit: SOURCES.kit,
+        setting: 'hybrid',
+      })
+      expect(decoded(job.picture)).toEqual(BADGE)
+    }
     expect(options).toEqual([
       { fonts: SOURCES.fonts, signal },
       { fonts: SOURCES.fonts, signal },
+      { fonts: SOURCES.fonts, signal },
     ])
-    // By the piece's number among the frame's pieces: the graphic between them is asked of no matcher.
+    // By the piece's number among the frame's pieces: the photo between them is asked of no matcher.
     expect([...answers]).toEqual([
       [0, { kind: 'picture', why: 'failed', scores: SCORES }],
-      [2, { kind: 'picture', why: 'photo' }],
+      [1, { kind: 'picture', why: 'photo' }],
+      [3, { kind: 'picture', why: 'photo' }],
     ])
+  })
+
+  it('gives a shape the colour the picture shows behind it, and the backdrop none', async () => {
+    const cut = cutOf(piece('e2', 'shape', 8, 30, 40, 20), piece('e5', 'background', 0, 0, 64, 64))
+    const { matcher, jobs } = matcherOver({ pic: PICTURE, 'cut-e2': HEADLINE, 'cut-e5': PICTURE })
+    await matcher({ cut, plan: PLAN, reading: null, pictureAssetId: 'pic' })
+
+    expect(jobs.map((job) => job.pieces[0]?.kind)).toEqual(['shape', 'shape'])
+    expect(jobs[0]?.backgrounds).toEqual([[10, 20, 200]])
+    expect(jobs[1]).not.toHaveProperty('backgrounds')
+    const none = matcherOver({ 'cut-e2': HEADLINE })
+    await none.matcher({ cut, plan: PLAN, reading: null, pictureAssetId: 'pic' })
+    expect(none.jobs[0]).not.toHaveProperty('backgrounds')
+  })
+
+  it('tells a shape what the pieces in front of it cover of it, where they are at least half opaque', async () => {
+    // The headline's black box lies over the picture's pixels 18 to 37 across and 35 to 44 down; the rest of it is clear.
+    const cut = cutOf(piece('e1', 'text', 8, 30, 40, 20), piece('e2', 'shape', 30, 40, 16, 16))
+    const { matcher, jobs } = matcherOver({ pic: PICTURE, 'cut-e1': HEADLINE, 'cut-e2': BADGE })
+    await matcher({ cut, plan: PLAN, reading: null, pictureAssetId: 'pic' })
+
+    expect(jobs[0]).not.toHaveProperty('hidden')
+    // The badge's first 8 pixels across and first 5 down lie under the box.
+    const partly = Array.from({ length: 16 * 16 }, (_, at) => (at % 16 < 8 && at < 5 * 16 ? 1 : 0))
+    expect(hiddenIn(jobs[1], 16 * 16)).toEqual(partly)
+    expect(MatchJob.safeParse(jobs[1]).success).toBe(true)
+  })
+
+  it('tells a shape wholly covered that every pixel of it is hidden, by a piece no matcher is asked of too', async () => {
+    const small = png(8, 4, [255, 0, 0, 1])
+    const cut = cutOf(piece('e4', 'photo', 8, 30, 40, 20), piece('e2', 'shape', 20, 36, 8, 4))
+    const { matcher, jobs } = matcherOver({ 'cut-e4': HEADLINE, 'cut-e2': small })
+    await matcher({ cut, plan: PLAN, reading: null, pictureAssetId: null })
+
+    expect(jobs).toHaveLength(1)
+    expect(jobs[0]?.hidden).toBe('/////w==')
+    expect(MatchJob.safeParse(jobs[0]).success).toBe(true)
+  })
+
+  it('tells a shape nothing is hidden when no piece in front covers it', async () => {
+    // In front of the headline; behind it but beside its box; and behind a piece whose picture isn't here.
+    const front = cutOf(piece('e2', 'shape', 30, 40, 16, 16), piece('e1', 'text', 8, 30, 40, 20))
+    const beside = cutOf(piece('e1', 'text', 8, 30, 40, 20), piece('e2', 'shape', 40, 4, 16, 16))
+    for (const cut of [front, beside]) {
+      const { matcher, jobs } = matcherOver({ pic: PICTURE, 'cut-e1': HEADLINE, 'cut-e2': BADGE })
+      await matcher({ cut, plan: PLAN, reading: null, pictureAssetId: 'pic' })
+      expect(jobs).toHaveLength(2)
+      for (const job of jobs) expect(job).not.toHaveProperty('hidden')
+    }
+    const unread = matcherOver({ pic: PICTURE, 'cut-e2': BADGE })
+    await unread.matcher({
+      cut: cutOf(piece('e4', 'photo', 8, 30, 40, 20), piece('e2', 'shape', 30, 40, 16, 16)),
+      plan: PLAN,
+      reading: null,
+      pictureAssetId: 'pic',
+    })
+    expect(unread.jobs[0]).not.toHaveProperty('hidden')
+  })
+
+  it('decodes each piece’s picture once, however many shapes it lies in front of, and none behind the last shape', async () => {
+    const [logo, first, second, last] = [1, 2, 3, 4].map((shade) => png(16, 16, [shade, 0, 0, 1]))
+    const cut = cutOf(
+      piece('e4', 'logo', 0, 0, 16, 16),
+      piece('e2', 'shape', 4, 4, 16, 16),
+      piece('e3', 'graphic', 8, 8, 16, 16),
+      piece('e6', 'photo', 0, 0, 16, 16),
+    )
+    const images = { 'cut-e4': logo, 'cut-e2': first, 'cut-e3': second, 'cut-e6': last } as Record<string, Uint8Array>
+    const { matcher, jobs, decodes } = matcherOver(images)
+    await matcher({ cut, plan: PLAN, reading: null, pictureAssetId: null })
+
+    expect(jobs.map((job) => job.hidden !== undefined)).toEqual([true, true])
+    // The last shape covers no shape and no colour is read behind it, so its picture isn't decoded either.
+    expect(decodes).toEqual([logo, first])
   })
 
   it('gives a text no colour behind it when the picture isn’t here, or isn’t the size the pieces’ places are in', async () => {
@@ -195,7 +295,7 @@ describe('pieceMatcher', () => {
 
     const pictures = matcherOver({ pic: PICTURE, 'cut-e3': BADGE })
     const kept = await pictures.matcher({
-      cut: cutOf(piece('e3', 'graphic', 0, 0, 16, 16)),
+      cut: cutOf(piece('e3', 'photo', 0, 0, 16, 16)),
       plan: PLAN,
       reading: null,
       pictureAssetId: 'pic',
@@ -214,5 +314,23 @@ describe('pieceMatcher', () => {
     expect(stopped.destroyed()).toBe(false)
     stopped.editor.abort()
     expect(stopped.destroyed()).toBe(true)
+  })
+})
+
+describe('hiddenBits', () => {
+  it('packs a byte a pixel into one bit a pixel, the first pixel of a byte in its highest bit, as base64', () => {
+    // A 3 × 3 picture hidden along its diagonal: 10001000 1, the last byte filled out with zeros.
+    const hidden = Uint8Array.from([1, 0, 0, 0, 1, 0, 0, 0, 1])
+    expect(hiddenBits(hidden)).toBe('iIA=')
+    expect([...decoded(hiddenBits(hidden))]).toEqual([0b10001000, 0b10000000])
+  })
+
+  it('is read back by the shape matcher’s layout as the pixels it was given, any value but 0 as hidden', () => {
+    const hidden = Uint8Array.from({ length: 5 * 7 }, (_, at) => (at % 3 === 0 || at === 34 ? 255 : 0))
+    const bits = decoded(hiddenBits(hidden))
+    expect(bits).toHaveLength(Math.ceil((5 * 7) / 8))
+    const read = Array.from({ length: hidden.length }, (_, at) => ((bits[at >> 3] ?? 0) >> (7 - (at & 7))) & 1)
+    expect(read).toEqual([...hidden].map((covered) => (covered ? 1 : 0)))
+    expect(hiddenBits(new Uint8Array(16))).toBe('AAA=')
   })
 })

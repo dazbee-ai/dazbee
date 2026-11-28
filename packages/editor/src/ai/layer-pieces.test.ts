@@ -11,7 +11,6 @@ import {
   onePlan,
   pieceBox,
   pieceCrop,
-  pieceId,
   pieceLink,
   pieceName,
   readingOf,
@@ -417,19 +416,5 @@ describe('pieceBox', () => {
       { x: 0, y: -3, width: 1920, height: 1086 },
       { x: 0, y: -24, width: 1200, height: 676 },
     ])
-  })
-})
-
-describe('pieceId', () => {
-  it('comes from the job, the frame and the layer, at most 64 characters', () => {
-    expect(pieceId('job', 'frame', 2)).toBe('job-frame-2')
-    expect(pieceId('j'.repeat(40), 'f'.repeat(40), 12)).toHaveLength(64)
-  })
-
-  it('gives the first layer a matcher rebuilt a piece as the piece’s own id, and the others ids no piece has', () => {
-    expect(pieceId('job', 'frame', 2, 0)).toBe('job-frame-2')
-    expect(pieceId('job', 'frame', 2, 1)).toBe('job-frame-2_1')
-    expect(pieceId('j'.repeat(40), 'f'.repeat(40), 12, 3)).toHaveLength(64)
-    expect(pieceId('j'.repeat(40), 'f'.repeat(40), 12, 3).endsWith('-12_3')).toBe(true)
   })
 })
